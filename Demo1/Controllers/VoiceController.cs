@@ -20,11 +20,8 @@ public class VoiceController : TwilioController
         var host = Request.Host.Value;
         var wsUrl = $"{scheme}://{host}/ws/stream";
 
-        Console.WriteLine($"WS URL => {wsUrl}");
-
         // Create a response
         var resp = new VoiceResponse();
-
         resp.Say("Hello! This is a AI recognitionist created by Pavel Gaevsky.", voice: "alice");
 
         resp.Pause(length: 2);
@@ -32,6 +29,7 @@ public class VoiceController : TwilioController
         // Ask Twilio to open Media Stream to our WebSocket endpoint
         var connect = new Connect();
         connect.Stream(url: wsUrl, track: "inbound_track");
+
         resp.Append(connect);
 
         return TwiML(resp);

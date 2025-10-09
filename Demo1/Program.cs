@@ -11,8 +11,12 @@ public class Program
         // Add services to the container.
 
         builder.Services.AddControllers();
-        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+   
         builder.Services.AddOpenApi();
+
+        // Configure Azure Speech options from configuration(Added region and key to secrets)
+        builder.Services.Configure<AzureSpeachOptions>(
+            builder.Configuration.GetSection("AzureSpeech"));
 
         var app = builder.Build();
 
@@ -41,5 +45,12 @@ public class Program
         app.MapControllers();
 
         app.Run();
+    }
+
+    // Options for Azure Speech service(Where will put Key and Region)
+    public record AzureSpeachOptions
+    {
+        public string Region { get; init; } = "";
+        public string Key { get; init; } = "";
     }
 }

@@ -8,11 +8,7 @@ using Twilio.TwiML.Messaging;
 using static Demo1.Program;
 using System.Runtime.InteropServices;
 
-
-
-
 namespace Demo1.Services;
-
 public static class MediaStreamHandler
 {
     // Records for deserializing Twilio Media Stream JSON messages
@@ -57,7 +53,19 @@ public static class MediaStreamHandler
             throw new InvalidOperationException("AzureSpeechOptions are empty (Region/Key). Check user-secrets or appsettings.");
 
         var speechCfg = SpeechConfig.FromSubscription(opts.Key, opts.Region);
+
+        // Languages of the caller
         speechCfg.SpeechRecognitionLanguage = "en-US";
+        // Get more detailed results with confidence scores and NBest list
+        speechCfg.OutputFormat = OutputFormat.Detailed;
+        // Get word-level timestamps
+        speechCfg.RequestWordLevelTimestamps();
+        // Stable partial results - less flickering
+        speechCfg.SetProperty(PropertyId.SpeechServiceResponse_StablePartialResultThreshold, "3");
+        // Timeout if no speech detected(once call starts) 5 seconds
+        speechCfg.SetProperty(PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "5000");
+        // Timeout if silence during the call 1.2 seconds to detect end of the phrase, 1,2 seconds
+        speechCfg.SetProperty(PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "1200");
 
         #endregion
 
@@ -74,6 +82,95 @@ public static class MediaStreamHandler
 
         #endregion
 
+        #region Temprorary phrase list to improve recognition of domain-specific terms.
+
+        // Create a phrase list grammar to improve recognition.Change it to Cosmos DB later.
+        var phraseList = PhraseListGrammar.FromRecognizer(recognizer);
+
+        string[] domainPhrases =
+        {
+            // === Hair services ===
+            "haircut",
+            "men's haircut",
+            "women's haircut",
+            "kids haircut",
+            "trim",
+            "bangs trim",
+            "bob cut",
+            "layered haircut",
+            "fade",
+            "undercut",
+            "shave",
+            "beard trim",
+            "hair color",
+            "root touch up",
+            "highlights",
+            "lowlights",
+            "balayage",
+            "ombre",
+            "toner",
+            "gloss",
+            "color correction",
+            "bleach",
+            "hair treatment",
+            "deep conditioning",
+            "keratin treatment",
+            "Brazilian blowout",
+            "blow dry",
+            "hair styling",
+            "updo",
+            "wedding hairstyle",
+            "curling",
+            "straightening",
+
+            // === Staff names ===
+            "Emily",
+            "Nikita",
+            "Pablo",
+
+            // === Products / brands ===
+            "Olaplex",
+            "Kerastase",
+            "Redken",
+            "Wella",
+            "L'Oreal",
+            "Matrix",
+            "Moroccanoil",
+
+            // === Booking and timing ===
+            "appointment",
+            "book",
+            "booking",
+            "reschedule",
+            "cancel appointment",
+            "availability",
+            "available time",
+            "today",
+            "tomorrow",
+            "next week",
+            "morning",
+            "afternoon",
+            "evening",
+
+            // === Salon and location ===
+            "hair salon",
+            "hair stylist",
+            "barber",
+            "receptionist",
+            "South Boulevard",
+            "Charlotte",
+            "University City",
+            "uptown",
+            "parking",
+            "address",
+            "open hours"
+        };
+
+        foreach (var p in domainPhrases)
+            phraseList.AddPhrase(p);
+
+        #endregion
+
         #region 4) Subscribtions to events from recognizer: recognized, canceled, session started/stopped
 
         // Gets recognized text chunks from the caller 
@@ -86,7 +183,43 @@ public static class MediaStreamHandler
         recognizer.Recognized += (_, e) =>
         {
             if (e.Result.Reason == ResultReason.RecognizedSpeech)
+            {
                 Console.WriteLine($"[Azure final] Recognized: {e.Result.Text}");
+
+                // Get detailed JSON result with confidence scores and word-level timestamps
+                var json = e.Result.Properties.GetProperty(PropertyId.SpeechServiceResponse_JsonResult);
+                try
+                {
+                    var doc = JsonDocument.Parse(json);
+                    var nbest = doc.RootElement.GetProperty("NBest");
+                    
+                    if(nbest.GetArrayLength() > 0)
+                    {
+                        // Get the top variant from NBest list(with a result with a highest confidence score)
+                        var top = nbest[0];
+                        var conf = top.GetProperty("Confidence").GetDouble();
+
+                        Console.WriteLine($"[Azure] Confidence={conf:0.000}");
+
+                        // If confidence is low - reprompt the user
+                        if (conf < 0.65)
+                        {
+                            Console.WriteLine("[Azure] Low confidence, consider reprompt");
+                            // Here suppouse to be logic to reprompt the user
+                        }
+                        // Check if we have alternative variants for statistical analysis and logs 
+                        if (nbest.GetArrayLength() >= 2)
+                        {
+                            var alt = nbest[1].GetProperty("Lexical").GetString();
+                            Console.WriteLine($"[Azure] Alternative: {alt}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Azure] JSON parse error: {ex.Message}");
+                }
+            }               
             else if (e.Result.Reason == ResultReason.NoMatch)
                 Console.WriteLine($"[Azure] NOMATCH: Speech could not be recognized.");
         };

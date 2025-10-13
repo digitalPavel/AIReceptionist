@@ -11,7 +11,7 @@ public class Program
         // Add services to the container.
 
         builder.Services.AddControllers();
-   
+
         builder.Services.AddOpenApi();
 
         // Configure Azure Speech options from configuration(Added region and key to secrets)

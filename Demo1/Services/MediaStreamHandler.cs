@@ -17,8 +17,8 @@ public static class MediaStreamHandler
 {
     // Records for deserializing Twilio Media Stream JSON messages
     private record BaseMsg(string @event);
-    private record StartMsg(string @event, StartPlayload start);
-    private record StartPlayload(string streamSid, string accauntSid, string callSid);
+    private record StartMsg(string @event, StartPlayload start );
+    private record StartPlayload (string streamSid, string accauntSid, string callSid);
     private record MediaMsg(string @event, MediaPayload media);
     // Media payload contains base64 encoded audio chunk
     private record MediaPayload(string payload);
@@ -46,7 +46,7 @@ public static class MediaStreamHandler
         #endregion
 
         #region 2) Azure Speech configuration
-
+ 
         // DI to get Azure Speech options(Bc we are in static class and can't do DI via a construction)
         var opts = ctx.RequestServices
                    .GetService<IOptions<AzureSpeachOptions>>()
@@ -123,8 +123,8 @@ public static class MediaStreamHandler
                 // Close connection if requested by client
                 if (res.MessageType == WebSocketMessageType.Close)
                 {
-                    Console.WriteLine("WebSocket connection closed by client");
-                    break;
+                   Console.WriteLine("WebSocket connection closed by client");
+                   break;
                 }
 
                 // Twillo sends data in JSON fragments:
@@ -136,7 +136,7 @@ public static class MediaStreamHandler
                     // Taking data from buffer and appending to StringBuilder
                     sb.Append(Encoding.UTF8.GetString(buffer, 0, res.Count));
                     if (!res.EndOfMessage)
-                        continue;
+                       continue;
 
                     var json = sb.ToString();
                     sb.Clear();
@@ -144,7 +144,7 @@ public static class MediaStreamHandler
                     // Parse the JSON to determine the event type
                     var kind = JsonSerializer.Deserialize<BaseMsg>(json)?.@event ?? "(none)";
 
-                    switch (kind)
+                    switch(kind)
                     {
                         case "start":
                             var s = JsonSerializer.Deserialize<StartMsg>(json)!;
@@ -206,7 +206,7 @@ public static class MediaStreamHandler
 /// </summary>
 internal static class MuLawDecoder
 {
-    internal static byte[] Decode(ReadOnlySpan<byte> ulaw)
+    internal static byte[] Decode (ReadOnlySpan<byte> ulaw)
     {
         var dest = new byte[ulaw.Length * 2];
         var span16 = MemoryMarshal.Cast<byte, short>(dest.AsSpan());

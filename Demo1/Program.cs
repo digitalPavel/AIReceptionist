@@ -1,6 +1,7 @@
+using Microsoft.AspNetCore.HttpOverrides;
+using Demo1.Services;
 
 namespace Demo1;
-
 public class Program
 {
     public static void Main(string[] args)
@@ -10,10 +11,22 @@ public class Program
         // Add services to the container.
 
         builder.Services.AddControllers();
-        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+   
         builder.Services.AddOpenApi();
 
+        // Configure Azure Speech options from configuration(Added region and key to secrets)
+        builder.Services.Configure<AzureSpeachOptions>(
+            builder.Configuration.GetSection("AzureSpeech"));
+
         var app = builder.Build();
+
+        // Configure Forwarded Headers Middleware to process X-Forwarded-* headers
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders =   ForwardedHeaders.XForwardedFor 
+                               | ForwardedHeaders.XForwardedProto
+                               | ForwardedHeaders.XForwardedHost
+        });
 
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
@@ -21,17 +34,23 @@ public class Program
             app.MapOpenApi();
         }
 
+        app.UseWebSockets();
+
+        app.Map("/ws/stream", MediaStreamHandler.HandleAsync);
+
         app.UseHttpsRedirection();
 
         app.UseAuthorization();
-
 
         app.MapControllers();
 
         app.Run();
     }
 
-// Options for Azure Speech service(Where will put Key and Region)
-public record AzureSpeachOptions(string Region, string Key);
-  
-
+    // Options for Azure Speech service(Where will put Key and Region)
+    public record AzureSpeachOptions
+    {
+        public string Region { get; init; } = "";
+        public string Key { get; init; } = "";
+    }
+}

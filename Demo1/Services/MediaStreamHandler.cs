@@ -13,8 +13,8 @@ public static class MediaStreamHandler
 {
     // Records for deserializing Twilio Media Stream JSON messages
     private record BaseMsg(string @event);
-    private record StartMsg(string @event, StartPlayload start );
-    private record StartPlayload (string streamSid, string accauntSid, string callSid);
+    private record StartMsg(string @event, StartPayload start );
+    private record StartPayload (string streamSid, string accountSid, string callSid);
     private record MediaMsg(string @event, MediaPayload media);
     // Media payload contains base64 encoded audio chunk
     private record MediaPayload(string payload);
@@ -45,7 +45,7 @@ public static class MediaStreamHandler
  
         // DI to get Azure Speech options(Bc we are in static class and can't do DI via a construction)
         var opts = ctx.RequestServices
-                   .GetService<IOptions<AzureSpeachOptions>>()
+                   .GetService<IOptions<AzureSpeechOptions>>()
                    .Value;
 
         Console.WriteLine($"[CFG] Region='{opts.Region}' KeyLen={opts.Key?.Length ?? 0}");
@@ -59,7 +59,7 @@ public static class MediaStreamHandler
         // Get more detailed results with confidence scores and NBest list
         speechCfg.OutputFormat = OutputFormat.Detailed;
         // Get word-level timestamps
-        speechCfg.RequestWordLevelTimestamps();
+        speechCfg.SetProperty(PropertyId.SpeechServiceResponse_RequestWordLevelTimestamps, "true");
         // Stable partial results - less flickering
         speechCfg.SetProperty(PropertyId.SpeechServiceResponse_StablePartialResultThreshold, "3");
         // Timeout if no speech detected(once call starts) 5 seconds

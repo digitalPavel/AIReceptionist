@@ -15,7 +15,7 @@ public class Program
         builder.Services.AddOpenApi();
 
         // Configure Azure Speech options from configuration(Added region and key to secrets)
-        builder.Services.Configure<AzureSpeachOptions>(
+        builder.Services.Configure<AzureSpeechOptions>(
             builder.Configuration.GetSection("AzureSpeech"));
 
         var app = builder.Build();
@@ -48,7 +48,7 @@ public class Program
     }
 
     // Options for Azure Speech service(Where will put Key and Region)
-    public record AzureSpeachOptions
+    public record AzureSpeechOptions
     {
         public string Region { get; init; } = "";
         public string Key { get; init; } = "";

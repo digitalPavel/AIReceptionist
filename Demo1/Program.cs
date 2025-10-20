@@ -50,7 +50,7 @@ public class Program
     // Options for Azure Speech service(Where will put Key and Region)
     public record AzureSpeechOptions
     {
-        public string Region { get; init; } = "";
-        public string Key { get; init; } = "";
+        public string Region { get; init; } = String.Empty;
+        public string Key { get; init; } = String.Empty;
     }
 }

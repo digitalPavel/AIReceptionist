@@ -9,6 +9,10 @@ using static Demo1.Program;
 using System.Runtime.InteropServices;
 
 namespace Demo1.Services;
+
+/// <summary>
+/// I/O resource lifecycle
+/// </summary>
 public static class MediaStreamHandler
 {
     // Records for deserializing Twilio Media Stream JSON messages

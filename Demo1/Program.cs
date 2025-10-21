@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.HttpOverrides;
 using Demo1.Services;
+using Demo1.Services.Brain;
 
 namespace Demo1;
 public class Program
@@ -17,6 +18,9 @@ public class Program
         // Configure Azure Speech options from configuration(Added region and key to secrets)
         builder.Services.Configure<AzureSpeechOptions>(
             builder.Configuration.GetSection("AzureSpeech"));
+
+        // Register state store for dialog memory
+        builder.Services.AddSingleton<IStateStore, InMemoryStateStore>();
 
         var app = builder.Build();
 

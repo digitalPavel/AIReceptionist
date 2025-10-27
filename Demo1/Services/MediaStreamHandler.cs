@@ -7,6 +7,7 @@ using System.Text.Json;
 using Twilio.TwiML.Messaging;
 using static Demo1.Program;
 using System.Runtime.InteropServices;
+using Demo1.Services.Brain;
 
 namespace Demo1.Services;
 
@@ -361,7 +362,7 @@ internal static class MuLawDecoder
         int sign = b & 0x80;
         int exponent = (b & 0x70) >> 4;
         int mantissa = b & 0x0F;
-        int sample = ((mantissa << 4) + 0x08) << (exponent + 2);
+        int sample = ((mantissa << 4) + 0x08) << (exponent + 3);
         sample -= 0x84;
         return (short)(sign != 0 ? -sample : sample);
     }

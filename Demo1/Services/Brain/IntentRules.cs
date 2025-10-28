@@ -15,135 +15,230 @@ public static class IntentRules
 {
     // Defined words/phrases for intent recognition. Use * as a wildcard for stemming.
 
+    // BOOK — create a new appointment
     private static readonly string[] BookWords =
     {
-        // EN — generic booking
-        "book","booking","appointment","appt","schedule","set up","reserve","reservation",
-        "slot","time slot","availability","available today","available now",
-        "next available","earliest available","first available",
-        "book an appointment","make an appointment","set up an appointment",
-        "i need an appointment","i’d like to book","i would like to book","can i book","schedule me",
-        "same day appointment","same-day appointment","walk in","walk-in","walk in appointment","walk-in appointment",
-        "consultation","free consult","new client appointment","first time appointment",
+    // EN — booking intent
+    "book","booking","make an appointment","set up an appointment","book an appointment",
+    "i’d like to book","i would like to book","can i book","schedule me","schedule appointment",
+    "same day appointment","do you have anything today","next available","earliest available",
+    "available today","available now","time slot","slot","walk in","walk-in",
+    "consultation","free consult","new client appointment","first time appointment", "appointmen*", 
 
-        // RU — generic booking
-        "запис*","бронь","забронировать","назначить приём","назначить прием","встать на запись",
-        "хочу записаться","можно записаться","записаться сегодня","запись сегодня",
-        "свободные слоты","есть свободно","ближайшее время","самое раннее","консультация",
-        "первичная консультация","впервые записаться",
+    // EN — service-led booking triggers
+    "book a haircut","book haircut","book trim","book color","book highlights",
+    "book balayage","book blowout","book keratin","book extensions",
 
-        // ES — generic booking
-        "cita","reserv*","agend*","turno","reservación","apart* cita",
-        "sacar cita","pedir cita","hacer una cita","agendar una cita",
-        "quiero una cita","tienen disponibilidad","hay disponibilidad",
-        "hoy mismo","para hoy","primera hora","consulta","consulta gratis","cita primera vez",
+    // RU — запись
+    "запис*","бронь","забронировать","назначить приём","назначить прием","встать на запись",
+    "хочу записаться","можно записаться","записаться сегодня","запись сегодня",
+    "свободные слоты","ближайшее время","самое раннее","консультация",
+    "первичная консультация","впервые записаться","записаться на стрижку","записаться на окрашивание",
+
+    // ES — cita
+    "cita","reserv*","agend*","turno","apart* cita",
+    "sacar cita","pedir cita","hacer una cita","agendar una cita",
+    "quiero una cita","tienen disponibilidad","hay disponibilidad",
+    "hoy mismo","para hoy","primera hora",
+    "cita primera vez","cita para corte","cita para color","cita para balayage","cita para keratina"
     };
 
-    private static readonly string[] CancelWords =
-    {
-        // EN
-        "cancel*","cancellation","call off","drop the appointment","remove my booking",
-        "no longer need","have to cancel","need to cancel","please cancel",
-        "can’t make it","cant make it","cannot make it","won’t make it","won't make it",
-        "running late cancel","sick cancel","cancel appointment","cancel my appointment",
-
-        // RU
-        "отмен*","снять запись","убрать запись","отказаться от записи","передумал", "удалить запись",
-        "не смогу прийти","не получится прийти","заболел","приболел","перестало быть актуально",
-
-        // ES
-        "cancelar","anular","anulación","quitar la cita","cancela mi cita",
-        "no puedo ir","no voy a ir","ya no la necesito","por favor cancela",
-    };
-
+    // RESCHEDULE — change existing appointment
     private static readonly string[] RescheduleWords =
     {
-        // EN
-        "reschedul*","rebook","change time","change my appointment","move appointment",
-        "move my appointment","different time","another time","another day",
-        "switch time","push back","bring forward","earlier time","later time",
-        "move to tomorrow","move to next week","any time tomorrow","same time tomorrow",
+    // EN
+    "reschedule", "reschedul*","rebook","change time","change my appointment","move appointment","move my appointment",
+    "reschedule my appointment","different time","another time","another day",
+    "switch time","push back","bring forward","earlier time","later time",
+    "move to tomorrow","move to next week","any time tomorrow","same time tomorrow",
 
-        // RU
-        "перенес*","перезапис*","сдвин*","перекин*",
-        "на другое время","на другой день","пораньше","попозже",
-        "перенести на завтра","перенести на следующую неделю","в это же время завтра",
-        "заменить время","изменить время","поменять время",
+    // RU
+    "перенес*","перезапис*","сдвин*","перекин*",
+    "на другое время","на другой день","пораньше","попозже",
+    "перенести на завтра","перенести на следующую неделю","в это же время завтра",
+    "заменить время","изменить время","поменять время","перенести на","перезаписать меня",
 
-        // ES
-        "reprogram*","cambiar hora","mover cita","otra hora","otro día",
-        "posponer","adelantar","pasar para mañana","la próxima semana",
-        "cambiar mi cita","mover mi cita",
+    // ES
+    "reprogram*","cambiar hora","cambiar mi cita","mover cita","otra hora","otro día",
+    "posponer","adelantar","pasar para mañana","la próxima semana","reprogramar cita"
     };
 
+    // CANCEL — cancel existing appointment
+    private static readonly string[] CancelWords =
+    {
+    // ==============================
+    // EN — cancel existing appointment
+    // ==============================
+    "cancel appointment","cancel my appointment","cancel the appointment",
+    "cancel my booking","cancel the booking","cancel my appt","cancel appt",
+    "i need to cancel","i have to cancel","please cancel",
+    "can you cancel","could you cancel",
+    "call off appointment","drop the appointment","remove my booking",
+    "i want to cancel","i do not need the appointment anymore",
+    "i cannot come","i can't come","cant come","cannot make it",
+    "can’t make it","cant make it","won’t make it","wont make it",
+    "not coming","not going to make it",
+    "running late cancel","sick cancel","i am sick","sick today",
+    "i have an emergency","family emergency",
+    "traffic delay cannot make it",
+    "no longer need","do not need anymore",
+
+    // ==============================
+    // RU — отменить запись
+    // ==============================
+    "отменить запись","отмена записи","удалите запись",
+    "убрать запись","снять запись","отказаться от записи",
+    "хочу отменить","передумал","неактуально","больше не надо",
+    "не смогу прийти","не смогу","не получится прийти","не получится",
+    "заболел","приболел","болею","плохо себя чувствую",
+    "не приду","опаздываю не приду", "отмените мою запись", "отмен*", "визит", "запис*",
+    "отмен*",
+    "семейные обстоятельства","форс мажор",
+
+    // ==============================
+    // ES — cancelar cita
+    // ==============================
+    "cancelar la cita","cancelar mi cita","anular cita","anular la cita",
+    "por favor cancela","por favor cancelar",
+    "quiero cancelar","tengo que cancelar","necesito cancelar",
+    "no puedo ir","no voy a ir","ya no la necesito","no la necesito",
+    "no podré asistir","no puedo asistir",
+    "estoy enfermo","estoy enferma","estoy mal","enfermo hoy",
+    "emergencia familiar","no llego a tiempo"
+};
+
+    // HANDOFF — request for human / language escalation
     private static readonly string[] HandoffWords =
     {
-        // EN
-        "operator","human","representative","agent","live agent","real person",
-        "receptionist","front desk","staff","manager",
-        "talk to a human","talk to someone","speak to representative",
-        "transfer me","connect me","can i talk to someone",
-        "english please","spanish speaker","russian speaker",
+    // EN — direct human requests
+    "operator","human","representative","agent","live agent","real person","receptionist","front desk","staff","manager",
+    "speak to a human","talk to a human","talk to someone","speak to someone",
+    "speak to representative","talk to representative",
+    "connect me","transfer me","connect to human","transfer to human",
+    "can i talk to someone","i need a person","i want to talk to a person","human please","someone else please",
 
-        // RU
-        "оператор","человек","живой человек","администратор","менеджер",
-        "соедините","переключите","переведите на оператора",
-        "можно по-русски","говорит по-русски",
+    // EN — frustration signals that imply escalation
+    "this is not helping","i do not understand","not working","stop the robot","i need assistance","let me talk to someone",
 
-        // ES
-        "humano","agente","operador","persona real","recepcionista","encargado",
-        "transferirme","conectarme","hablar con alguien","hablar con un representante",
-        "habla español","en español por favor",
+    // EN — language routing
+    "english please","spanish please","russian please","spanish speaker","russian speaker",
+    "do you speak russian","do you speak spanish","i need spanish","i need russian","help in spanish","help in russian",
+
+    // RU — человек нужен
+    "оператор","консультант","администратор","менеджер","живой человек","настоящий человек",
+    "соедините","соедините с оператором","переключите","переведите на оператора",
+    "хочу поговорить с человеком","можно с человеком",
+    "не понимаю","это не помогает","нужна помощь","нужен менеджер",
+    "можно по-русски","говорите по-русски","говорит по-русски","помощь по-русски","русский язык",
+
+    // ES — humano / idioma
+    "humano","agente","representante","operador","persona real","recepcionista","encargado",
+    "hablar con alguien","hablar con un representante","hablar con una persona",
+    "conéctame","transferirme","conectar con humano","esto no ayuda","no entiendo","necesito ayuda",
+    "en español por favor","habla español","hablan español",
+    "puedo hablar español","necesito español","ayuda en español",
+    "en ruso por favor","habla ruso","hablan ruso"
     };
 
+    // FAQ — pricing, hours, policies, location, payments, service info
     private static readonly string[] FaqWords =
     {
-        // EN — pricing/policies/general info
-        "price","pricing","cost","how much","fee","quote","estimate","starting at",
-        "menu","service menu","price list","price range",
-        "deposit","booking fee","prepayment","non refundable","non-refundable",
-        "cancellation policy","late policy","no show","no-show","grace period",
-        "new client policy","children policy","pets policy",
+    // EN — pricing
+    "price","prices","pricing","cost","how much","fee","fees","estimate","quote",
+    "price list","service menu","menu","rates","discount","coupon","specials",
+    "starting at","from price","price range","consultation fee",
 
-        // EN — hours/location/parking/contact
-        "hours","open","close","open today","open now","weekend hours","holiday hours",
-        "address","location","directions","nearby","parking","parking validation","where to park",
-        "contact","phone number","email","website","social media",
+    // EN — services asked for price
+    "haircut","trim","fade","layers","bangs","fringe",
+    "color","dye","bleach","highlights","lowlights","balayage","toner","ombre",
+    "blowout","style","keratin","extensions","braids",
 
-        // EN — payments/gift cards/offers (still FAQ)
-        "payment","pay","card","credit card","debit card","cash","apple pay","google pay","tap to pay",
-        "gift card","gift certificate","voucher","coupon","groupon","discount","student discount",
+    // EN — hours & availability
+    "hours","business hours","opening hours","store hours","salon hours",
+    "what time do you open","when do you open","what time do you close","when do you close",
+    "open today","open now","closed now",
+    "walk-ins welcome","do you take walk-ins",
+    "availability","next availability","next opening",
+    "weekend hours","weekday hours","holiday hours","are you open on","are you open today",
+    "when you opened","when you clsoed", // recall-only misspellings
 
-        // RU — цены/политики/общая информация
-        "цена","стоимост*","сколько стоит","сколько будет","прайс","меню услуг","прейскурант",
-        "залог","предоплата","невозврат","не возвращается","политика отмен","политика опозданий",
-        "штраф за неявку","no show","grace период","льготный период",
-        "политика для новых клиентов","дети допускаются","с питомцами можно",
+    // EN — location & contact
+    "address","location","directions","how do i get there","near me","parking","where to park",
+    "phone number","contact","website","instagram","facebook",
 
-        // RU — режим/адрес/парковка/контакты
-        "часы работы","график","режим","вы открыты","вы сегодня открыты","по выходным",
-        "адрес","локация","как доехать","как добраться","парковка","где парковаться",
-        "контакты","телефон","почта","сайт","соцсети",
+    // EN — policies & payments
+    "new client policy","cancellation policy","late policy","no show fee",
+    "deposit","prepayment","refund policy","no refunds",
+    "credit card","debit card","cash only","card only","tap to pay","apple pay","google pay","zelle","venmo","cash app","gratuity included",
 
-        // RU — оплата/подарки/скидки
-        "оплата","оплата картой","принимаете карту","наличными","apple pay","google pay",
-        "подарочный сертификат","подарочная карта","купон","скидка","студенческая скидка",
+    // RU — цены / меню / услуги
+    "цена","цены","стоимость","сколько стоит","сколько будет","прайс","меню услуг","прейскурант",
+    "консультация","бесплатная консультация",
+    "стрижка","окрашивание","балаяж","мелирование","укладка","кератин","наращивание","пряди",
 
-        // ES — precios/políticas/info general
-        "precio","cuánto cuesta","tarifa","presupuesto","lista de precios","menú de servicios",
-        "depósito","anticipo","no reembolsable","no reembolsables",
-        "política de cancelación","política de tardanza","no show","no asistir","periodo de gracia",
-        "política nuevos clientes","política niños","política mascotas",
+    // RU — часы / доступность / адрес
+    "часы работы","график","режим работы","расписание",
+    "во сколько открываетесь","во сколько закрываетесь","вы сегодня открыты","сейчас открыты",
+    "без записи","есть запись сегодня",
+    "адрес","локация","как добраться","рядом","парковка","телефон","сайт","инстаграм","фейсбук",
 
-        // ES — horario/ubicación/parking/contacto
-        "horario","abren","abierto","cerrado","hoy abren","fin de semana","festivos",
-        "dirección","ubicación","cómo llegar","indicaciones","estacionamiento","dónde estacionar",
-        "contacto","teléfono","correo","sitio web","redes sociales",
+    // RU — политики / оплата
+    "залог","предоплата","политика отмен","штраф за неявку","возврат средств","без возвратов",
+    "оплата","картой","наличными","apple pay","google pay","чаевые включены",
 
-        // ES — pagos/regalos/ofertas
-        "pago","tarjeta","efectivo","apple pay","google pay","tap to pay",
-        "gift card","certificado de regalo","cupón","descuento","descuento estudiante",
+    // ES — precios / servicios
+    "precio","precios","cuánto cuesta","lista de precios","menú de servicios",
+    "corte","color","balayage","queratina","extensiones",
+    "consulta","consulta gratis",
+
+    // ES — horario / acceso
+    "horario","a qué hora abren","a qué hora cierran","están abiertos hoy",
+    "abierto ahora","cerrado ahora",
+    "sin cita","cita el mismo día","walk in",
+    "dirección","ubicación","cómo llegar","cerca de mí","estacionamiento","validación de estacionamiento",
+    "teléfono","sitio web","redes sociales","instagram","facebook",
+
+    // ES — políticas / pago
+    "política de cancelación","cargo por tardanza","cargo por no show","política nuevos clientes",
+    "depósito","anticipo","reembolso","sin reembolsos",
+    "tarjeta","efectivo","solo efectivo","apple pay","google pay","propina incluida"
+};
+
+    // Neutral tokens that do not contribute to intent scoring
+    private static readonly HashSet<string> NeutralTokens = new(StringComparer.Ordinal)
+    {
+        // ==============================
+        // EN — polite / connector / filler
+        // ==============================
+        "hi","hello","hey","thanks","thank you","ok","okay","please",
+        "yes","no","sure","maybe","fine","cool","alright","right","well",
+
+        // Generic conversational helpers
+        "like","just","also","really","actually","so","then",
+
+        // Soft temporal context (not directive)
+        "today","tomorrow","morning","afternoon","evening","tonight","soon","later",
+        "this","next","day","time",
+
+        // ==============================
+        // RU — нейтральные
+        // ==============================
+        "привет","здравствуйте","ок","хорошо","пожалуйста","спасибо","ага",
+        "да","нет","можно","ладно",
+
+        // Время
+        "сегодня","завтра","утром","днем","вечером","позже","скоро","сейчас",
+
+        // ==============================
+        // ES — нейтральные
+        // ==============================
+        "hola","buenas","gracias","ok","vale","claro","por favor",
+        "sí","si","no","tal vez","quizas","quizás",
+
+        // Tiempo
+        "hoy","mañana","tarde","noche","ahora","pronto","después"
     };
+
 
     // Mapping from Intent to associated keywords/phrases
     private static readonly Dictionary<Intent, string[]> Vocab = new()
@@ -202,28 +297,36 @@ public static class IntentRules
             var phrases = new List<string>(rawList.Length);
 
             // Loop through each raw keyword/phrase in the vocab
+            // Iterate through each raw vocabulary entry for this intent
             foreach (var raw in rawList)
             {
-                // Skip empty lines or whitespace
+                // Ignore empty or whitespace-only entries
                 if (string.IsNullOrWhiteSpace(raw))
                     continue;
 
-                // Normalize text (lowercase + remove diacritics)
-                var needle = Normalize(raw);
+                // Determine if this vocabulary item uses a wildcard prefix (*) BEFORE Normalize
+                // Because Normalize removes '*' automatically as a symbol
+                bool isPrefix = raw.EndsWith("*", StringComparison.Ordinal);
 
-                // Multi-word phrase → store in phrases list
+                // Remove '*' only for prefix stems BEFORE normalization
+                string core = isPrefix ? raw[..^1] : raw;
+
+                // Normalize: lowercase + remove diacritics + punctuation cleanup
+                var needle = Normalize(core);
+
+                // Multi-word phrase → store as a phrase for boundary-checked scoring
                 if (needle.Contains(' '))
                 {
                     phrases.Add(needle.Trim());
                 }
-                // Word ends with '*' → store as prefix (stem)
-                else if (needle.EndsWith('*'))
+                // Prefix word → store its normalized stem as a prefix trigger
+                else if (isPrefix)
                 {
-                    var stem = needle.AsSpan(0, needle.Length - 1).ToString();
-                    if (!string.IsNullOrWhiteSpace(stem) && stem.Length >= 3)
-                        prefixes.Add(stem);
+                    // Minimal length check helps avoid false positives (e.g. "re*")
+                    if (!string.IsNullOrWhiteSpace(needle) && needle.Length >= 3)
+                        prefixes.Add(needle);
                 }
-                // Regular single word → store in words set
+                // Otherwise treat as a single-word exact match term
                 else
                 {
                     words.Add(needle);
@@ -266,7 +369,7 @@ public static class IntentRules
             return new IntentResult(Intent.Unknown, 0.0, 0, 0, "empty input");
 
         // Normalize input text: replace split chars and remove diacritics
-        var norm = Normalize(SplitterChars.Replace(text, " "));
+        var norm = Normalize(text);
 
         // Tokenize normalized text into a set of unique tokens for fast lookup
         var tokens = Tokenizer.Matches(norm)
@@ -339,7 +442,7 @@ public static class IntentRules
 
         // High confidence → accept intent fully 
         return new IntentResult(best.intent, conf, best.score, second.score, reasonText);
-    }   
+    }
 
 
     //=====================Internal helpers==================================================
@@ -350,7 +453,7 @@ public static class IntentRules
     //I can tune these weights to adjust the sensitivity!
     private const int WORD_WEIGHT = 1;
     private const int PREFIX_WEIGHT = 1;
-    private const int PHRASE_WEIGHT = 3;
+    private const int PHRASE_WEIGHT = 4;
 
     // Decision thresholds for intent validation:
     // - REJECT_THRESHOLD: below this confidence → intent is Unknown (reject guess)
@@ -362,20 +465,60 @@ public static class IntentRules
     private const int MIN_SCORE = 2;
     private const int MIN_GAP = 1;
 
-    private static (int score, int hits, string details) ScoreIntent
-        (string normalizedText, HashSet<string> tokenSet, LexiconRuntime lx)
+    /// <summary>
+    /// Calculates the intent score based on:
+    ///  1) Exact word matches
+    ///  2) Prefix matches
+    ///  3) Phrase matches
+    ///
+    /// IMPORTANT:
+    /// - Phrase hits come first and block their tokens
+    ///   from being counted again as words/prefixes.
+    /// - Neutral tokens never score (shared, non-informative words).
+    ///
+    /// Returns:
+    ///   score   = total weighted score
+    ///   hits    = number of matched elements
+    ///   details = summary string for logs
+    /// </summary>
+    private static (int score, int hits, string details) ScoreIntent(
+        string normalizedText,
+        HashSet<string> tokenSet,
+        LexiconRuntime lx)
     {
-        // Accumulates the total weight of all matched words/phrases
         int score = 0;
-        // Counts how many matches were found
         int hits = 0;
-        // Explaining how that score was produced
         var detailList = new List<string>(4);
 
-        // 1) Exact word matches
+        // 1) Phrase matches (highest weight)
+        int phraseHits = 0;
+        var matchedPhrases = new List<string>();
+
+        foreach (var p in lx.Phrases)
+            if (ContainsPhraseWithBoundaries(normalizedText, p))
+                matchedPhrases.Add(p);
+
+        if (matchedPhrases.Count > 0)
+        {
+            phraseHits = matchedPhrases.Count;
+            score += phraseHits * PHRASE_WEIGHT;
+            hits += phraseHits;
+            detailList.Add($"phrases:{phraseHits}");
+        }
+
+        // Block tokens that belong to matched phrases (avoid double scoring)
+        var blockedTokens = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var ph in matchedPhrases)
+            foreach (Match m in Tokenizer.Matches(ph))
+                blockedTokens.Add(m.Value);
+
+        // 2) Exact word matches (skip blocked + neutral)
         int wordHits = 0;
         foreach (var w in lx.Words)
         {
+            if (blockedTokens.Contains(w)) continue;
+            if (NeutralTokens.Contains(w)) continue;
+
             if (tokenSet.Contains(w))
                 wordHits++;
         }
@@ -387,30 +530,28 @@ public static class IntentRules
             detailList.Add($"words:{wordHits}");
         }
 
-        // 2) Prefix matches
+        // 3) Prefix matches (e.g., cancel*, reschedul*) — skip blocked + exact words + neutral
         int prefHits = 0;
-        if( lx.PrefixWords.Length > 0)
+        if (lx.PrefixWords.Length > 0)
         {
-            // To avoid double counting, set needs to exclude exact words already matched
-            var nonWordTokenz = lx.Words.Count > 0 ? tokenSet.Except(lx.Words) : tokenSet;
+            IEnumerable<string> baseTokens = tokenSet;
 
-            // Loop through each token not already matched as an exact word
-            foreach (var tok in nonWordTokenz)
+            if (lx.Words.Count > 0) baseTokens = baseTokens.Except(lx.Words);
+            if (blockedTokens.Count > 0) baseTokens = baseTokens.Except(blockedTokens);
+            if (NeutralTokens.Count > 0) baseTokens = baseTokens.Except(NeutralTokens);
+
+            foreach (var tok in baseTokens)
             {
-                // Check each prefix for a match againt the prefix dictionary
                 foreach (var pref in lx.PrefixWords)
                 {
-                    // If the prefix word(token) less then 3 chars, skip it
-                    if (pref.Length < 3)
-                        continue;
-
+                    if (pref.Length < 3) continue; // avoid false positives
                     if (tok.StartsWith(pref, StringComparison.Ordinal))
                     {
                         prefHits++;
-                        break; // Move to next token after first prefix match
+                        break; // one prefix hit per token
                     }
                 }
-            }         
+            }
         }
 
         if (prefHits > 0)
@@ -418,19 +559,6 @@ public static class IntentRules
             score += prefHits * PREFIX_WEIGHT;
             hits += prefHits;
             detailList.Add($"prefixes:{prefHits}");
-        }
-
-        // 3) Phrase matches
-        int phraseHits = 0;
-        foreach (var p in lx.Phrases)
-            // 
-            if (ContainsPhraseWithBoundaries(normalizedText, p)) phraseHits++;
-
-        if (phraseHits > 0)
-        {
-            score += PHRASE_WEIGHT * phraseHits; // <— uses weight
-            hits += phraseHits;                 // keep hits as “count of matches”
-            detailList.Add($"phrases:{phraseHits}");
         }
 
         return (score, hits, string.Join(", ", detailList));
@@ -479,20 +607,37 @@ public static class IntentRules
     /// <summary>
     /// Normalize text: lowercase + remove diacritics for clean comparison
     /// </summary>
+    private static readonly Regex PunctOrSymbol =
+    new(@"[\p{P}\p{S}]+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex MultiSpace =
+        new(@"\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static string Normalize(string s)
     {
+        if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+
+        // 1) lower + decompose
         var lower = s.ToLowerInvariant().Normalize(NormalizationForm.FormD);
+
+        // 2) strip diacritics
         var sb = new StringBuilder(lower.Length);
         foreach (var ch in lower)
             if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
                 sb.Append(ch);
-        return sb.ToString().Normalize(NormalizationForm.FormC);
+        var noDiacritics = sb.ToString().Normalize(NormalizationForm.FormC);
+
+        // 3) стандартизировать тех. разделители и пунктуацию → пробел
+        var splitStandardized = SplitterChars.Replace(noDiacritics, " ");
+        var noPunct = PunctOrSymbol.Replace(splitStandardized, " ");
+
+        // 4) схлопнуть пробелы и trim
+        return MultiSpace.Replace(noPunct, " ").Trim();
     }
 
     /// <summary>
     /// Result of intent classification with confidence and scores
     /// </summary>
-    public readonly record struct IntentResult(
+    public readonly record struct IntentResult(  
        Intent Intent,
        double Confidence, // 0.0–1.0 (relative)
        int Score,         // best score

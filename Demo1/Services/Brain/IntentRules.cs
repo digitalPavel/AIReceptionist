@@ -8,8 +8,9 @@ using System.Text.RegularExpressions;
 namespace Demo1.Services.Brain;
 
 /// <summary>
-/// NLU layer for the better intantion understanding and perfomance.
-/// Also to avoid extra LLM usage to save cost.
+/// Rule-based NLU for better intent understanding and performance.
+/// Finds user intent via weighted scoring of words, prefixes, and phrases with priorities and confidence thresholds.
+/// Helps avoid extra LLM usage to save cost.
 /// </summary>
 public static class IntentRules
 {
@@ -60,7 +61,7 @@ public static class IntentRules
 
     // ES
     "reprogram*","cambiar hora","cambiar mi cita","mover cita","otra hora","otro día",
-    "posponer","adelantar","pasar para mañana","la próxima semana","reprogramar cita"
+    "posponer"," adelantar","pasar para mañana","la próxima semana","reprogramar cita"
     };
 
     // CANCEL — cancel existing appointment
@@ -178,7 +179,7 @@ public static class IntentRules
 
     // RU — часы / доступность / адрес
     "часы работы","график","режим работы","расписание",
-    "во сколько открываетесь","во сколько закрываетесь","вы сегодня открыты","сейчас открыты",
+    "во сколько открываетесь","во сколько закрываете","вы сегодня открыты","сейчас открыты",
     "без записи","есть запись сегодня",
     "адрес","локация","как добраться","рядом","парковка","телефон","сайт","инстаграм","фейсбук",
 

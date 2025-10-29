@@ -12,7 +12,7 @@ using Demo1.Services.Brain;
 namespace Demo1.Services;
 
 /// <summary>
-/// I/O resource lifecycle
+/// I/O resource lifecycle. Handler for Twilio Media Stream WebSocket connection.
 /// </summary>
 public static class MediaStreamHandler
 {

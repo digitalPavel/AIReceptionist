@@ -16,9 +16,24 @@ public interface IStateStore
 
 /// <summary>
 /// Application state lifecycle in memory
+/// Short-lived, per-call dialog memory stored in-process
 /// </summary>
 public sealed class InMemoryStateStore : IStateStore
 {
+
+    #region Key validation 
+
+    public static void ValidateCallSid(string callSid)
+    {
+        if (callSid is null)
+            throw new ArgumentNullException(nameof(callSid), "callSid cannot be null"); // null
+
+        if (string.IsNullOrWhiteSpace(callSid))
+            throw new ArgumentException("callSid cannot be empty or whitespace.", nameof(callSid)); // whitespace
+    }
+
+    #endregion
+
     // A thread-safe dictionary (in-memory database) that maps each phone call’s unique ID (CallSid)
     // to its current DialogState. Multiple Twilio events for the same call reuse the same state.
     private readonly ConcurrentDictionary<string, DialogState> _map = new();
@@ -28,7 +43,7 @@ public sealed class InMemoryStateStore : IStateStore
     /// </summary>
     public DialogState GetOrCreate(string callSid)
     {
-        ArgumentNullException.ThrowIfNull(callSid);
+        ValidateCallSid(callSid);
 
         return _map.GetOrAdd(callSid, key => new DialogState { CallSid = key });
     }
@@ -38,7 +53,7 @@ public sealed class InMemoryStateStore : IStateStore
     /// </summary>
     public void Update(string callSid, Func<DialogState, DialogState> updater)
     {
-        ArgumentNullException.ThrowIfNull(callSid);
+        ValidateCallSid(callSid);
         ArgumentNullException.ThrowIfNull(updater);
 
         _map.AddOrUpdate(
@@ -53,7 +68,7 @@ public sealed class InMemoryStateStore : IStateStore
     /// </summary>
     public void Remove(string callSid)
     {
-        ArgumentNullException.ThrowIfNull(callSid);
+         ValidateCallSid(callSid);
 
         _map.TryRemove(callSid, out _);
     }

@@ -3,11 +3,12 @@ using System.Globalization;
 
 
 /// <summary>
+/// ASR → NLU → Decision -> Action(Routing)
 /// Brain pipeline that processes ASR results and NLU intent classification,
 /// then decides the next dialog action (Act, Confirm, Reprompt, Handoff, etc.).
 /// </summary>
 namespace Demo1.Services.Brain;
-
+ 
 /// <summary>
 /// Final ASR result from Azure Speech service.
 /// </summary>

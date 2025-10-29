@@ -1,9 +1,13 @@
 ﻿using Demo1.Models;
 using System.Globalization;
 
+
+/// <summary>
+/// Brain pipeline that processes ASR results and NLU intent classification,
+/// then decides the next dialog action (Act, Confirm, Reprompt, Handoff, etc.).
+/// </summary>
 namespace Demo1.Services.Brain;
 
-// Infrastructure DTO from ASR
 /// <summary>
 /// Final ASR result from Azure Speech service.
 /// </summary>

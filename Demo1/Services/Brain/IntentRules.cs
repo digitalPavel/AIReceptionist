@@ -5,13 +5,14 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Demo1.Services.Brain;
-
 /// <summary>
 /// Rule-based NLU for better intent understanding and performance.
 /// Finds user intent via weighted scoring of words, prefixes, and phrases with priorities and confidence thresholds.
 /// Helps avoid extra LLM usage to save cost.
 /// </summary>
+
+namespace Demo1.Services.Brain;
+
 public static class IntentRules
 {
     // Defined words/phrases for intent recognition. Use * as a wildcard for stemming.

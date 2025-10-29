@@ -2,11 +2,11 @@
 using System.Collections.Concurrent;
 using Demo1.Models;
 
-namespace Demo1.Services.Brain;
-
 /// <summary>
 /// Application state lifecycle (per-call dialog memory stored in-process).
 /// </summary>
+namespace Demo1.Services.Brain;
+
 public interface IStateStore
 {
     DialogState GetOrCreate(string callSid);

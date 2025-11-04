@@ -70,7 +70,7 @@ public sealed record Decision(DecisionKind Kind, string? Note = null);
 /// </summary>
 public interface IDecisionPolicy
 {
-    Decision Decide(AsrFinal asr, IntentRules.IntentResult intent);
+    Decision Decide(AsrFinal asr, IntentRules.IntentResult intent, DialogState? st = null);
 }
 
 #endregion
@@ -78,7 +78,7 @@ public interface IDecisionPolicy
 public sealed class DefaultDecisionPolicy : IDecisionPolicy
 {
     // Thresholds (consider moving to IOptions)
-    private const double ASR_CONFIDENCE_THRESHOLD = 0.70;
+    private const double ASR_CONFIDENCE_THRESHOLD = 0.55;
     private const double HANDOFF_CONFIRM_THRESHOLD = 0.75;
 
     /// <summary>
@@ -88,12 +88,16 @@ public sealed class DefaultDecisionPolicy : IDecisionPolicy
         r.Intent != Intent.Unknown &&
         (r.Reason?.StartsWith("tentative", StringComparison.OrdinalIgnoreCase) ?? false);
 
-    public Decision Decide(AsrFinal asr, IntentRules.IntentResult i)
+    public Decision Decide(AsrFinal asr, IntentRules.IntentResult i, DialogState? st = null)
     {
+        // 0) Too many reprompts → handoff
+        if (st is not null && st.RetryCount >= 2)
+            return new Decision(DecisionKind.Handoff, "Too many reprompts");
+
         // 1) Poor ASR → reprompt
         if (asr.AsrConfidence < ASR_CONFIDENCE_THRESHOLD)
             return new Decision(DecisionKind.Reprompt, "Low ASR confidence");
-
+            
         // 2) Unknown intent → reprompt
         if (i.Intent == Intent.Unknown)
             return new Decision(DecisionKind.Reprompt, "Unknown intent");

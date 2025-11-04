@@ -1,13 +1,15 @@
-﻿using Microsoft.CognitiveServices.Speech;
+﻿using Demo1.Models;
+using Demo1.Services.Brain;
+using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
 using Microsoft.Extensions.Options;
+using System;
 using System.Net.WebSockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Twilio.TwiML.Messaging;
 using static Demo1.Program;
-using System.Runtime.InteropServices;
-using Demo1.Services.Brain;
 
 namespace Demo1.Services;
 
@@ -39,19 +41,28 @@ public static class MediaStreamHandler
             return;
         }
 
-        #region 1) Accept and open the WebSocket connection
+        #region 1) Accept and open the WebSocket connection and register services via DI
 
         using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
         Console.WriteLine("WebSocket connection established");
 
+        // Get services via DI
+        INluService nlu = ctx.RequestServices.GetService<INluService>() ?? new RulesNluService();
+        IDecisionPolicy policy = ctx.RequestServices.GetService<IDecisionPolicy>() ?? new DefaultDecisionPolicy();
+        IStateStore? store = ctx.RequestServices.GetService<IStateStore>();
+        // ILlmNluService? llm = ctx.RequestServices.GetService<ILlmNluService>(); // later
+
         #endregion
 
+        // Call SID from Twilio to identify the call
+        string? callSid = null;
+
         #region 2) Azure Speech configuration
- 
+
         // DI to get Azure Speech options(Bc we are in static class and can't do DI via a construction)
-        var opts = ctx.RequestServices
-                   .GetService<IOptions<AzureSpeechOptions>>()
-                   .Value;
+        var optsAcc = ctx.RequestServices.GetService<IOptions<AzureSpeechOptions>>();
+        if (optsAcc is null) throw new InvalidOperationException("IOptions<AzureSpeechOptions> not registered.");
+        var opts = optsAcc.Value;
 
         Console.WriteLine($"[CFG] Region='{opts.Region}' KeyLen={opts.Key?.Length ?? 0}");
         if (string.IsNullOrWhiteSpace(opts.Region) || string.IsNullOrWhiteSpace(opts.Key))
@@ -206,20 +217,136 @@ public static class MediaStreamHandler
 
                         Console.WriteLine($"[Azure] Confidence={conf:0.000}");
 
-                        // If confidence is low - reprompt the user
-                        if (conf < 0.65)
+                        // Get lexical representation of the recognized text
+                        var text = top.TryGetProperty("Lexical", out var lex)
+                        ? (lex.GetString() ?? e.Result.Text)
+                        : e.Result.Text;
+
+                        // Ignore empty results or results with very low confidence
+                        if (string.IsNullOrWhiteSpace(text) || conf < 0.05)
                         {
-                            Console.WriteLine("[Azure] Low confidence, consider reprompt");
-                            // Here suppouse to be logic to reprompt the user
+                            Console.WriteLine("[Azure] Empty/low-confidence final → ignore");
+                            return; // не идём в NLU/Policy/RetryCount
                         }
+
+                        // Create ASR final record to send it to the Brain pipeline
+                        var asr = new AsrFinal(
+                        CallSid: callSid ?? "uknown",
+                        Text: text,
+                        AsrConfidence: conf,
+                        Language: speechCfg.SpeechRecognitionLanguage
+                        );
+
+                        // Call NLU to classify intent from the recognized text
+                        var nluRes = nlu.Classify(text);
+                        Console.WriteLine($"[NLU] intent={nluRes.Intent} conf={nluRes.Confidence:0.00} score={nluRes.Score}/{nluRes.SecondBest} reason={nluRes.Reason}");
+
+                        // Decidion policy to take action based on ASR and NLU results
+                        var st = store?.GetOrCreate(callSid);
+                        var decision = policy.Decide(asr, nluRes, st);
+                        var overall = Math.Min(asr.AsrConfidence, nluRes.Confidence);
+                        Console.WriteLine($"[POLICY] {decision.Kind} note={decision.Note ?? "-"} overall≈{overall:0.00}");
+
+
+                        // LLM fallback for unknown intents - to be implemented later!
+                        if (decision.Kind == DecisionKind.Reprompt &&
+                        nluRes.Intent == Intent.Unknown && conf >= 0.65)
+                        {
+                            try
+                            {
+                                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(900));
+                                // var llmRes = await llm.ClassifyAsync(text, cts.Token); // внедрите позже
+                                // Заглушка: пока пропускаем. Когда внедрите LLM, раскомментируйте два блока ниже.
+
+                                // var llmDecision = policy.Decide(asr, llmRes);
+                                // if (llmDecision.Kind != DecisionKind.Reprompt)
+                                // {
+                                //     Console.WriteLine("[LLM] Accepted");
+                                //     decision = llmDecision;
+                                //     nluRes = llmRes;
+                                // }
+                                // else
+                                // {
+                                //     Console.WriteLine("[LLM] Still low → Reprompt");
+                                // {
+                            }
+                            catch (OperationCanceledException ex)
+                            {
+                                Console.WriteLine($"[LLM] Timeout → skip fallback {ex}");
+                            }
+                        }
+
+                        // Routing based on the decision and updating dialog state if needed
+                        switch (decision.Kind)
+                        {
+                            case DecisionKind.Reprompt:
+                                Console.WriteLine("[TTS] Reprompt: Sorry, I did not catch that. How can I help with your appointment?");
+                                if (store != null && callSid != null)
+                                {
+                                    // Increase retry count, unless low ASR is the reason for reprompt
+                                    var isLowAsr = (decision.Note?.StartsWith("Low ASR", StringComparison.OrdinalIgnoreCase) ?? false);
+                                    if (!isLowAsr)
+                                    {
+                                        store.Update(callSid, st => st with { RetryCount = st.RetryCount + 1 });
+                                    }
+                                }
+                                break;
+
+                            case DecisionKind.Confirm:
+
+                                // Map intent to user-friendly phrase
+                                string IntentToPhrase(Intent intent) => intent switch
+                                {
+                                    Intent.Book => "book an appointment",
+                                    Intent.Cancel => "cancel your appointment",
+                                    Intent.Reschedule => "reschedule your appointment",
+                                    Intent.Handoff => "talk to a human",
+                                    Intent.Faq => "get some info",
+                                    _ => "proceed"
+                                };
+                                Console.WriteLine($"[TTS] Confirm: You’d like to {IntentToPhrase(nluRes.Intent)}. Is that right?");
+
+                                if (store is not null && !string.IsNullOrWhiteSpace(callSid))
+                                {
+                                    store.Update(callSid!, st => st with
+                                    {
+                                        Asked = Asked.Confirm,
+                                        Intent = nluRes.Intent,
+                                        RetryCount = 0
+                                    });
+                                }
+                                break;
+
+                            case DecisionKind.Handoff:
+                                Console.WriteLine("[Handoff] Escalate to human");
+                                break;
+
+                            case DecisionKind.Act:
+                                if (store is not null && !string.IsNullOrWhiteSpace(callSid))
+                                {
+                                    store.Update(callSid!, st => st with
+                                    {
+                                        Intent = nluRes.Intent,
+                                        RetryCount = 0
+                                    });
+                                }
+                                // Route to intent handler(Routing.cs)
+                                IntentRouter.Route(nluRes.Intent, callSid, text);
+                                break;
+
+                            default:
+                                break;
+
+                        }                          
+                    }
                         // Check if we have alternative variants for statistical analysis and logs 
                         if (nbest.GetArrayLength() >= 2)
                         {
                             var alt = nbest[1].GetProperty("Lexical").GetString();
                             Console.WriteLine($"[Azure] Alternative: {alt}");
                         }
-                    }
                 }
+                
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[Azure] JSON parse error: {ex.Message}");
@@ -249,6 +376,8 @@ public static class MediaStreamHandler
         var buffer = new byte[64 * 1024];
 
         var sb = new StringBuilder();
+
+        var stoppedByTwilio = false;
 
         try
         {
@@ -282,13 +411,22 @@ public static class MediaStreamHandler
                     // Parse the JSON to determine the event type
                     var kind = JsonSerializer.Deserialize<BaseMsg>(json)?.@event ?? "(none)";
 
-                    switch(kind)
+                    switch (kind)
                     {
                         case "start":
                             var s = JsonSerializer.Deserialize<StartMsg>(json)!;
+
+                            // Store CallSid for later use
+                            callSid = s.start.callSid;
+
                             Console.WriteLine($"[Twilio start]Stream started: streamSid = {s.start.streamSid}, " +
                                 $"callSid = {s.start.callSid}");
 
+                            // Create call state in the store
+                            if (store is not null && !string.IsNullOrWhiteSpace(callSid))
+                            {
+                                store.GetOrCreate(callSid);
+                            }
                             break;
 
                         case "media":
@@ -304,37 +442,88 @@ public static class MediaStreamHandler
                             break;
 
                         case "stop":
-                            Console.WriteLine("[Twilio stop]Stream stopped by Twilio");
-                            // Stop Azure Speech SDK
-                            await recognizer.StopContinuousRecognitionAsync();
-                            // Close the push stream - we don't need it anymore
-                            push.Close();
-                            // Close WebSocket connection
-                            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Bye", CancellationToken.None);
+                            Console.WriteLine("[Twilio stop] Stream stopped by Twilio");
+                            stoppedByTwilio = true; // Mark that Twilio ended the call gracefully
 
-                            return;
+                            // Stop recognition early (optional, speeds up shutdown)
+                            await recognizer.StopContinuousRecognitionAsync();
+
+                            // Exit the loop after "stop" event
+                            break;
+
 
                         default:
                             Console.WriteLine($"[Twilio] Unknown event: {kind}");
                             break;
 
                     }
+                    // If Twilio sent "stop", close the output and exit
+                    if (stoppedByTwilio)
+                    {
+                        try { await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Twilio stop", CancellationToken.None); } catch { }
+                        break;
+                    }
                 }
             }
         }
         finally
         {
-            // Close the push stream 
-            push.Close();
+            /// === Centralized cleanup ===
+            try
+            {
+                // 1️⃣ Stop Azure Speech recognizer safely
+                try
+                {
+                    await recognizer.StopContinuousRecognitionAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CLEANUP] recognizer.Stop failed: {ex.Message}");
+                }
 
-            // Stop Azure Speech SDK
-            await recognizer.StopContinuousRecognitionAsync();
+                // 2️⃣ Close the push audio stream
+                try
+                {
+                    push.Close();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CLEANUP] push.Close failed: {ex.Message}");
+                }
 
-            // Close WebSocket connection if not closed yet
-            if (ws.State != WebSocketState.Closed)
-                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+                // 3️⃣ Close the WebSocket connection (if still open)
+                try
+                {
+                    if (ws.State != WebSocketState.Closed && ws.State != WebSocketState.CloseSent)
+                    {
+                        var reason = stoppedByTwilio ? "Twilio stop" : "server cleanup";
+                        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, reason, CancellationToken.None);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CLEANUP] ws.CloseAsync failed: {ex.Message}");
+                }
 
-            Console.WriteLine("[WS] disconnected");
+                // 4️⃣ Remove dialog state from the in-memory store
+                try
+                {
+                    if (store is not null && !string.IsNullOrWhiteSpace(callSid))
+                    {
+                        store.Remove(callSid!);
+                        Console.WriteLine($"[State] Removed dialog state for callSid={callSid}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CLEANUP] store.Remove failed: {ex.Message}");
+                }
+            }
+            finally
+            {
+                // Always runs at the very end, even if cleanup had errors
+                Console.WriteLine("[WS] disconnected");
+            }
         }
     }
 }

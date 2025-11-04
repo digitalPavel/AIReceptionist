@@ -20,226 +20,577 @@ public static class IntentRules
     // BOOK — create a new appointment
     private static readonly string[] BookWords =
     {
-    // EN — booking intent
-    "book","booking","make an appointment","set up an appointment","book an appointment",
-    "i’d like to book","i would like to book","can i book","schedule me","schedule appointment",
-    "same day appointment","do you have anything today","next available","earliest available",
-    "available today","available now","time slot","slot","walk in","walk-in",
-    "consultation","free consult","new client appointment","first time appointment", "appointmen*", 
+        // ==============================
+        // EN — booking (keywords)
+        // ==============================
+        "book","booking","schedule","make appointment","set up appointment",
+        "available today","available now","next available","earliest available","time slot","slot",
+        "new client","first time","consult","consultation","free consult",
 
-    // EN — service-led booking triggers
-    "book a haircut","book haircut","book trim","book color","book highlights",
-    "book balayage","book blowout","book keratin","book extensions",
+        // ==============================
+        // EN — booking (PHRASES - strong)
+        // ==============================
+        "i wanna make an appointment",
+        "i wanna book an appointment",
+        "i wanna schedule an appointment",
+        "may i have an appointment",
+        "i need an appointment",
+        "can i get an appointment",
+        "can you schedule an appointment for me",
+        "create an appointment for me",
+        "can i create an appointment",
+        "i want to book an appointment",
+        "i'd like to book an appointment",
+        "i would like to book",
+        "can i book an appointment",
+        "can i make an appointment",
+        "can you book me",
+        "please book me",
+        "i want to schedule an appointment",
+        "i'd like to schedule",
+        "can i schedule an appointment",
+        "schedule an appointment",
+        "book me for today",
+        "book me for tomorrow",
+        "book me for next week",
+        "do you have anything today",
+        "do you have any openings today",
+        "any availability today",
+        "next available appointment",
+        "earliest available appointment",
+        "first available appointment",
+        "book a consultation",
+        "book a free consultation",
+        "book a haircut",
+        "book highlights",
+        "book balayage",
+        "book keratin",
+        "book extensions",
 
-    // RU — запись
-    "запис*","бронь","забронировать","назначить приём","назначить прием","встать на запись",
-    "хочу записаться","можно записаться","записаться сегодня","запись сегодня",
-    "свободные слоты","ближайшее время","самое раннее","консультация",
-    "первичная консультация","впервые записаться","записаться на стрижку","записаться на окрашивание",
+        // ==============================
+        // RU — запись (keywords)
+        // ==============================
+        "запис*","бронь","забронировать","назначить приём","назначить прием","встать на запись",
+        "свободные слоты","ближайшее время","самое раннее","новый клиент","консультация",
 
-    // ES — cita
-    "cita","reserv*","agend*","turno","apart* cita",
-    "sacar cita","pedir cita","hacer una cita","agendar una cita",
-    "quiero una cita","tienen disponibilidad","hay disponibilidad",
-    "hoy mismo","para hoy","primera hora",
-    "cita primera vez","cita para corte","cita para color","cita para balayage","cita para keratina"
+        // ==============================
+        // RU — запись (PHRASES - strong)
+        // ==============================
+        "хочу записаться на приём",
+        "хочу записаться на прием",
+        "можно записаться на",
+        "можно записаться сегодня",
+        "можно записаться завтра",
+        "запишите меня сегодня",
+        "запишите меня на завтра",
+        "запишите меня на следующую неделю",
+        "есть что-то сегодня",
+        "есть свободные окна сегодня",
+        "ближайшая запись",
+        "самое раннее время",
+        "запишите меня на консультацию",
+        "первичная консультация",
+        "записаться как новый клиент",
+        "впервые записаться",
+        "записаться на стрижку",
+        "записаться на окрашивание",
+        "записаться на балаяж",
+        "записаться на кератин",
+        "записаться на укладку",
+        "записаться на наращивание",
+
+        // ==============================
+        // ES — cita / agendar (keywords)
+        // ==============================
+        "cita","reserv*","agend*","turno","apart*","disponibilidad","disponible hoy",
+        "nuevo cliente","primera vez","consulta","consultar",
+
+        // ==============================
+        // ES — cita / agendar (PHRASES - strong)
+        // ==============================
+        "quiero agendar una cita",
+        "quiero hacer una cita",
+        "puedo agendar una cita",
+        "puedo hacer una cita",
+        "me puede agendar una cita",
+        "quisiera una cita",
+        "quiero una cita hoy",
+        "tienen citas hoy",
+        "tienen disponibilidad hoy",
+        "la próxima disponibilidad",
+        "la cita más temprano",
+        "primera cita disponible",
+        "agendar una consulta",
+        "cita para nuevo cliente",
+        "cita para corte",
+        "cita para color",
+        "cita para balayage",
+        "cita para queratina",
+        "cita para peinado",
+        "cita para extensiones",
+        "quiero agendar para mañana",
+        "puedo agendar para la próxima semana"
     };
+
 
     // RESCHEDULE — change existing appointment
     private static readonly string[] RescheduleWords =
     {
-    // EN
-    "reschedule", "reschedul*","rebook","change time","change my appointment","move appointment","move my appointment",
-    "reschedule my appointment","different time","another time","another day",
-    "switch time","push back","bring forward","earlier time","later time",
-    "move to tomorrow","move to next week","any time tomorrow","same time tomorrow",
+        // ==============================
+        // EN — reschedule (keywords)
+        // ==============================
+        "reschedule","reschedul*","rebook",
+        "change time","change appointment","change my appointment","change the appointment",
+        "move appointment","move my appointment","move to another time","move to another day",
+        "switch time","different time","another time","another day",
+        "earlier time","later time","push back","bring forward","new time","adjust time",
 
-    // RU
-    "перенес*","перезапис*","сдвин*","перекин*",
-    "на другое время","на другой день","пораньше","попозже",
-    "перенести на завтра","перенести на следующую неделю","в это же время завтра",
-    "заменить время","изменить время","поменять время","перенести на","перезаписать меня",
+        // ==============================
+        // EN — reschedule (PHRASES - strong)
+        // ==============================
+        "reschedule my appointment",
+        "can you reschedule my appointment",
+        "could you reschedule my appointment",
+        "can we reschedule my appointment",
+        "please reschedule my appointment",
+        "i can’t come today can you reschedule my appointment",
+        "i cannot come today can you reschedule my appointment",
+        "can you reschedule it for tomorrow",
+        "can you move my appointment to tomorrow",
+        "can you move my appointment to next week",
+        "i’m running late can you reschedule my appointment",
+        "i need to reschedule my appointment",
+        "can i reschedule my appointment",
+        "i want to reschedule my appointment",
+        "please reschedule my appointment",
+        "i'd like to reschedule",
+        "can you change my appointment",
+        "can i change my appointment time",
+        "can i move my appointment",
+        "can you move my appointment",
+        "move my appointment to tomorrow",
+        "move my appointment to next week",
+        "reschedule for tomorrow",
+        "reschedule for next week",
+        "same time tomorrow",
+        "any time tomorrow",
+        "book me for a different time",
+        "rebook me for another day",
+        "can i change it to later",
+        "can i move it earlier",
+        "push my appointment back a bit",
+        "bring it forward a bit",
 
-    // ES
-    "reprogram*","cambiar hora","cambiar mi cita","mover cita","otra hora","otro día",
-    "posponer"," adelantar","pasar para mañana","la próxima semana","reprogramar cita"
+        // ==============================
+        // RU — перенос (keywords)
+        // ==============================
+        "перенес*","перезапис*","сдвин*","перекин*","перемест*","заменить время","поменять время","изменить время","новое время",
+        "на другое время","на другой день","пораньше","попозже",
+
+        // ==============================
+        // RU — перенос (PHRASES - strong)
+        // ==============================
+        "могу ли я перенести запись",
+        "хочу перенести запись",
+        "нужно перенести запись",
+        "перенесите меня пожалуйста",
+        "можно перенести на завтра",
+        "можно перенести на следующую неделю",
+        "перенесите на завтра",
+        "перенесите на следующий день",
+        "перезапишите меня на другое время",
+        "запишите меня на другое время",
+        "перенести на утро",
+        "перенести на вечер",
+        "в это же время завтра",
+        "сменить время записи",
+        "заменить время записи",
+
+        // ==============================
+        // ES — reprogramar / cambiar cita (keywords)
+        // ==============================
+        "reprogram*","cambiar hora","cambiar cita","cambiar mi cita","mover cita",
+        "otra hora","otro día","posponer","adelantar","nuevo horario","nuevo día",
+
+        // ==============================
+        // ES — reprogramar / cambiar cita (PHRASES - strong)
+        // ==============================
+        "necesito reprogramar mi cita",
+        "quiero reprogramar mi cita",
+        "puedo reprogramar mi cita",
+        "me puede cambiar la cita",
+        "quiero cambiar la hora de mi cita",
+        "puedo mover mi cita",
+        "puede mover mi cita",
+        "mover mi cita para mañana",
+        "mover mi cita para la próxima semana",
+        "reprogramar para mañana",
+        "reprogramar para la próxima semana",
+        "la misma hora mañana",
+        "cambiarla para más tarde",
+        "cambiarla para más temprano"
     };
 
-    // CANCEL — cancel existing appointment
+
     private static readonly string[] CancelWords =
     {
-    // ==============================
-    // EN — cancel existing appointment
-    // ==============================
-    "cancel appointment","cancel my appointment","cancel the appointment",
-    "cancel my booking","cancel the booking","cancel my appt","cancel appt",
-    "i need to cancel","i have to cancel","please cancel",
-    "can you cancel","could you cancel",
-    "call off appointment","drop the appointment","remove my booking",
-    "i want to cancel","i do not need the appointment anymore",
-    "i cannot come","i can't come","cant come","cannot make it",
-    "can’t make it","cant make it","won’t make it","wont make it",
-    "not coming","not going to make it",
-    "running late cancel","sick cancel","i am sick","sick today",
-    "i have an emergency","family emergency",
-    "traffic delay cannot make it",
-    "no longer need","do not need anymore",
+        // ==============================
+        // EN — cancel (keywords)
+        // ==============================
+        "cancel","cancel appointment","cancel my appointment","cancel the appointment",
+        "cancel booking","cancel my booking","cancel appt","cancel my appt",
+        "call off","no longer need","don’t need anymore","do not need anymore",
+        "can’t make it","cant make it","cannot make it","won’t make it","wont make it",
+        "not coming","running late","emergency","family emergency","sick","sick today",
+        "traffic delay",
 
-    // ==============================
-    // RU — отменить запись
-    // ==============================
-    "отменить запись","отмена записи","удалите запись",
-    "убрать запись","снять запись","отказаться от записи",
-    "хочу отменить","передумал","неактуально","больше не надо",
-    "не смогу прийти","не смогу","не получится прийти","не получится",
-    "заболел","приболел","болею","плохо себя чувствую",
-    "не приду","опаздываю не приду", "отмените мою запись", "отмен*", "визит", "запис*",
-    "отмен*",
-    "семейные обстоятельства","форс мажор",
+        // ==============================
+        // EN — cancel (PHRASES - strong)
+        // ==============================
+        "i need to cancel my appointment",
+        "i have to cancel my appointment",
+        "please cancel my appointment",
+        "can you cancel my appointment",
+        "could you cancel my appointment",
+        "i want to cancel my appointment",
+        "i do not need the appointment anymore",
+        "i can’t come please cancel",
+        "i cannot make it please cancel",
+        "i’m sick please cancel my appointment",
+        "i have an emergency please cancel",
+        "i’m running late cancel my appointment",
+        "cancel my booking please",
+        "drop the appointment please",
+        "remove my booking please",
 
-    // ==============================
-    // ES — cancelar cita
-    // ==============================
-    "cancelar la cita","cancelar mi cita","anular cita","anular la cita",
-    "por favor cancela","por favor cancelar",
-    "quiero cancelar","tengo que cancelar","necesito cancelar",
-    "no puedo ir","no voy a ir","ya no la necesito","no la necesito",
-    "no podré asistir","no puedo asistir",
-    "estoy enfermo","estoy enferma","estoy mal","enfermo hoy",
-    "emergencia familiar","no llego a tiempo"
-};
+        // ==============================
+        // RU — отмена (keywords)
+        // ==============================
+        "отмена","отменить запись","отмена записи","удалите запись",
+        "убрать запись","снять запись","отказаться от записи",
+        "передумал","неактуально","больше не надо",
+        "не смогу прийти","не смогу","не получится прийти","не получится",
+        "заболел","приболел","болею","плохо себя чувствую",
+        "не приду","опаздываю","форс мажор","семейные обстоятельства",
+
+        // ==============================
+        // RU — отмена (PHRASES - strong)
+        // ==============================
+        "хочу отменить запись",
+        "нужно отменить запись",
+        "отмените мою запись пожалуйста",
+        "можете отменить мою запись",
+        "я передумал отмените запись",
+        "не смогу прийти отмените запись",
+        "я заболел отмените запись",
+        "у меня форс мажор отмените запись",
+        "опаздываю отмените запись",
+
+        // ==============================
+        // ES — cancelar (keywords)
+        // ==============================
+        "cancelar","cancelar la cita","cancelar mi cita","anular cita","anular la cita",
+        "ya no la necesito","no la necesito","no puedo ir","no podré asistir",
+        "emergencia familiar","enfermo","enferma","estoy enfermo","estoy enferma",
+
+        // ==============================
+        // ES — cancelar (PHRASES - strong)
+        // ==============================
+        "necesito cancelar mi cita",
+        "tengo que cancelar mi cita",
+        "por favor cancela mi cita",
+        "puede cancelar mi cita",
+        "quiero cancelar mi cita",
+        "no puedo ir por favor cancela",
+        "estoy enfermo cancela mi cita",
+        "tengo una emergencia cancela mi cita"
+    };
+
 
     // HANDOFF — request for human / language escalation
     private static readonly string[] HandoffWords =
-    {
-    // EN — direct human requests
-    "operator","human","representative","agent","live agent","real person","receptionist","front desk","staff","manager",
-    "speak to a human","talk to a human","talk to someone","speak to someone",
-    "speak to representative","talk to representative",
-    "connect me","transfer me","connect to human","transfer to human",
-    "can i talk to someone","i need a person","i want to talk to a person","human please","someone else please",
+      {
+        // ==============================
+        // EN — talk to human (keywords)
+        // ==============================
+        "operator","human","representative","agent","live agent","real person","receptionist",
+        "front desk","staff","manager","someone","support","help","person",
 
-    // EN — frustration signals that imply escalation
-    "this is not helping","i do not understand","not working","stop the robot","i need assistance","let me talk to someone",
+        // EN — direct human requests (PHRASES - strong)
+        "speak to a human",
+        "talk to a human",
+        "talk to someone",
+        "speak to someone",
+        "speak to a representative",
+        "talk to a representative",
+        "connect me to a human",
+        "transfer me to a human",
+        "connect me please",
+        "transfer me please",
+        "can i talk to someone",
+        "can i speak to a person",
+        "i need a person",
+        "i want to talk to a person",
+        "human please",
+        "someone else please",
+        "let me talk to someone",
+        "can you transfer me to front desk",
+        "can you connect me to reception",
+        "can you connect me to the manager",
 
-    // EN — language routing
-    "english please","spanish please","russian please","spanish speaker","russian speaker",
-    "do you speak russian","do you speak spanish","i need spanish","i need russian","help in spanish","help in russian",
+        // EN — frustration / escalation (PHRASES)
+        "this is not helping",
+        "i do not understand",
+        "not working",
+        "stop the robot",
+        "stop talking",
+        "i need assistance",
+        "i need help",
+        "let me talk to a real person",
+        "connect me with support",
 
-    // RU — человек нужен
-    "оператор","консультант","администратор","менеджер","живой человек","настоящий человек",
-    "соедините","соедините с оператором","переключите","переведите на оператора",
-    "хочу поговорить с человеком","можно с человеком",
-    "не понимаю","это не помогает","нужна помощь","нужен менеджер",
-    "можно по-русски","говорите по-русски","говорит по-русски","помощь по-русски","русский язык",
+        // EN — language routing (PHRASES)
+        "english please",
+        "spanish please",
+        "russian please",
+        "spanish speaker",
+        "russian speaker",
+        "do you speak russian",
+        "do you speak spanish",
+        "i need spanish",
+        "i need russian",
+        "help in spanish",
+        "help in russian",
 
-    // ES — humano / idioma
-    "humano","agente","representante","operador","persona real","recepcionista","encargado",
-    "hablar con alguien","hablar con un representante","hablar con una persona",
-    "conéctame","transferirme","conectar con humano","esto no ayuda","no entiendo","necesito ayuda",
-    "en español por favor","habla español","hablan español",
-    "puedo hablar español","necesito español","ayuda en español",
-    "en ruso por favor","habla ruso","hablan ruso"
+        // ==============================
+        // RU — человек нужен (keywords)
+        // ==============================
+        "оператор","консультант","администратор","менеджер","человек","помощь",
+        "живой человек","настоящий человек","менеджер","рецепция",
+
+        // RU — человек нужен (PHRASES - strong)
+        "соедините с оператором",
+        "переключите на оператора",
+        "переведите на оператора",
+        "соедините меня с человеком",
+        "хочу поговорить с человеком",
+        "можно с человеком",
+        "нужна помощь оператора",
+        "нужен менеджер",
+        "не понимаю",
+        "это не помогает",
+        "нужна помощь",
+        "помогите пожалуйста",
+        "можно по-русски",
+        "говорите по-русски",
+        "говорит по-русски",
+        "помощь по-русски",
+        "русский язык пожалуйста",
+
+        // ==============================
+        // ES — humano / idioma (keywords)
+        // ==============================
+        "humano","agente","representante","operador","persona real","recepcionista","encargado",
+        "ayuda","soporte","asistencia","manager","gerente",
+
+        // ES — hablar con humano (PHRASES - strong)
+        "hablar con alguien",
+        "hablar con un representante",
+        "hablar con una persona",
+        "hablar con humano",
+        "conéctame con alguien",
+        "transferirme con alguien",
+        "conectar con humano",
+        "esto no ayuda",
+        "no entiendo",
+        "necesito ayuda",
+        "necesito asistencia",
+        "en español por favor",
+        "habla español",
+        "hablan español",
+        "puedo hablar español",
+        "necesito español",
+        "ayuda en español",
+        "en ruso por favor",
+        "habla ruso",
+        "hablan ruso",
+        "ayuda en ruso"
     };
+
 
     // FAQ — pricing, hours, policies, location, payments, service info
     private static readonly string[] FaqWords =
     {
-    // EN — pricing
-    "price","prices","pricing","cost","how much","fee","fees","estimate","quote",
-    "price list","service menu","menu","rates","discount","coupon","specials",
-    "starting at","from price","price range","consultation fee",
+        // ==============================
+        // EN — pricing (keywords)
+        // ==============================
+        "price","prices","pricing","cost","how much","fee","fees","estimate","quote",
+        "price list","service menu","menu","rates","discount","coupon","specials",
+        "starting at","from price","price range","consultation fee",
 
-    // EN — services asked for price
-    "haircut","trim","fade","layers","bangs","fringe",
-    "color","dye","bleach","highlights","lowlights","balayage","toner","ombre",
-    "blowout","style","keratin","extensions","braids",
+        // EN — services (keywords often used with price)
+        "haircut","trim","fade","layers","bangs","fringe",
+        "color","dye","bleach","highlights","lowlights","balayage","toner","ombre",
+        "blowout","style","keratin","extensions","braids",
 
-    // EN — hours & availability
-    "hours","business hours","opening hours","store hours","salon hours",
-    "what time do you open","when do you open","what time do you close","when do you close",
-    "open today","open now","closed now",
-    "walk-ins welcome","do you take walk-ins",
-    "availability","next availability","next opening",
-    "weekend hours","weekday hours","holiday hours","are you open on","are you open today",
-    "when you opened","when you clsoed", // recall-only misspellings
+        // ==============================
+        // EN — hours & availability (keywords)
+        // ==============================
+        "hours","business hours","opening hours","store hours","salon hours",
+        "what time do you open","when do you open","what time do you close","when do you close",
+        "open today","open now","closed now",
+        "walk-ins welcome","do you take walk-ins",
+        "availability","next availability","next opening",
+        "weekend hours","weekday hours","holiday hours","are you open on","are you open today",
+        "when you opened","when you closed", // fixed typo
 
-    // EN — location & contact
-    "address","location","directions","how do i get there","near me","parking","where to park",
-    "phone number","contact","website","instagram","facebook",
+        // ==============================
+        // EN — location & contact (keywords)
+        // ==============================
+        "address","location","directions","how do i get there","near me","parking","where to park",
+        "phone number","contact","website","instagram","facebook",
 
-    // EN — policies & payments
-    "new client policy","cancellation policy","late policy","no show fee",
-    "deposit","prepayment","refund policy","no refunds",
-    "credit card","debit card","cash only","card only","tap to pay","apple pay","google pay","zelle","venmo","cash app","gratuity included",
+        // ==============================
+        // EN — policies & payments (keywords)
+        // ==============================
+        "new client policy","cancellation policy","late policy","no show fee",
+        "deposit","prepayment","refund policy","no refunds",
+        "credit card","debit card","cash only","card only","tap to pay",
+        "apple pay","google pay","zelle","venmo","cash app","gratuity included",
 
-    // RU — цены / меню / услуги
-    "цена","цены","стоимость","сколько стоит","сколько будет","прайс","меню услуг","прейскурант",
-    "консультация","бесплатная консультация",
-    "стрижка","окрашивание","балаяж","мелирование","укладка","кератин","наращивание","пряди",
+        // ==============================
+        // EN — pricing/hours/payments (PHRASES - strong)
+        // ==============================
+        "tell me about your prices",
+        "can you tell me your prices",
+        "how much does it cost",
+        "how much do you charge",
+        "how much is a haircut",
+        "how much is keratin",
+        "how much is balayage",
+        "price for a haircut",
+        "what are your prices",
+        "what is the price for",
+        "what are your hours",
+        "what time are you open until",
+        "are you open today",
+        "are you open now",
+        "are you open right now",
+        "do you accept apple pay",
+        "do you take apple pay",
+        "do you accept card",
+        "do you accept credit cards",
+        "do you take cards",
+        "do you take cash",
+        "do you accept cash",
+        "do you accept google pay",
+        "do you accept zelle",
+        "do you accept venmo",
+        "do you accept cash app",
+        "your hours", // short but useful phrase
 
-    // RU — часы / доступность / адрес
-    "часы работы","график","режим работы","расписание",
-    "во сколько открываетесь","во сколько закрываете","вы сегодня открыты","сейчас открыты",
-    "без записи","есть запись сегодня",
-    "адрес","локация","как добраться","рядом","парковка","телефон","сайт","инстаграм","фейсбук",
+        // ==============================
+        // RU — цены / меню / услуги (keywords)
+        // ==============================
+        "цена","цены","стоимость","сколько стоит","сколько будет","прайс","меню услуг","прейскурант",
+        "консультация","бесплатная консультация",
+        "стрижка","окрашивание","балаяж","мелирование","укладка","кератин","наращивание","пряди",
 
-    // RU — политики / оплата
-    "залог","предоплата","политика отмен","штраф за неявку","возврат средств","без возвратов",
-    "оплата","картой","наличными","apple pay","google pay","чаевые включены",
+        // RU — часы / доступность / адрес (keywords)
+        "часы работы","график","режим работы","расписание",
+        "во сколько открываетесь","во сколько закрываете","вы сегодня открыты","сейчас открыты",
+        "без записи","есть запись сегодня",
+        "адрес","локация","как добраться","рядом","парковка","телефон","сайт","инстаграм","фейсбук",
 
-    // ES — precios / servicios
-    "precio","precios","cuánto cuesta","lista de precios","menú de servicios",
-    "corte","color","balayage","queratina","extensiones",
-    "consulta","consulta gratis",
+        // RU — политики / оплата (keywords)
+        "залог","предоплата","политика отмен","штраф за неявку","возврат средств","без возвратов",
+        "оплата","картой","наличными","apple pay","google pay","чаевые включены",
 
-    // ES — horario / acceso
-    "horario","a qué hora abren","a qué hora cierran","están abiertos hoy",
-    "abierto ahora","cerrado ahora",
-    "sin cita","cita el mismo día","walk in",
-    "dirección","ubicación","cómo llegar","cerca de mí","estacionamiento","validación de estacionamiento",
-    "teléfono","sitio web","redes sociales","instagram","facebook",
+        // RU — цены/часы/оплата (PHRASES)
+        "какие у вас цены",
+        "расскажите про цены",
+        "сколько стоит стрижка",
+        "сколько стоит окрашивание",
+        "сколько стоит кератин",
+        "какая стоимость услуги",
+        "какие у вас часы работы",
+        "во сколько вы открываетесь",
+        "во сколько вы закрываетесь",
+        "вы открыты сегодня",
+        "вы сейчас открыты",
+        "принимаете ли вы карты",
+        "принимаете ли вы apple pay",
+        "принимаете ли вы наличные",
+        "можно оплатить картой",
+        "можно оплатить наличными",
 
-    // ES — políticas / pago
-    "política de cancelación","cargo por tardanza","cargo por no show","política nuevos clientes",
-    "depósito","anticipo","reembolso","sin reembolsos",
-    "tarjeta","efectivo","solo efectivo","apple pay","google pay","propina incluida"
-};
+        // ==============================
+        // ES — precios / servicios (keywords)
+        // ==============================
+        "precio","precios","cuánto cuesta","lista de precios","menú de servicios",
+        "corte","color","balayage","queratina","extensiones",
+        "consulta","consulta gratis",
+
+        // ES — horario / acceso (keywords)
+        "horario","a qué hora abren","a qué hora cierran","están abiertos hoy",
+        "abierto ahora","cerrado ahora",
+        "sin cita","cita el mismo día","walk in",
+        "dirección","ubicación","cómo llegar","cerca de mí","estacionamiento","validación de estacionamiento",
+        "teléfono","sitio web","redes sociales","instagram","facebook",
+
+        // ES — políticas / pago (keywords)
+        "política de cancelación","cargo por tardanza","cargo por no show","política nuevos clientes",
+        "depósito","anticipo","reembolso","sin reembolsos",
+        "tarjeta","efectivo","solo efectivo","apple pay","google pay","propina incluida",
+
+        // ES — precios/horario/pagos (PHRASES)
+        "cuáles son sus precios",
+        "cuánto cuesta el corte",
+        "cuánto cuesta la queratina",
+        "me puede decir sus precios",
+        "cuál es su horario",
+        "están abiertos hoy",
+        "están abiertos ahora",
+        "aceptan tarjeta",
+        "aceptan apple pay",
+        "aceptan efectivo",
+        "aceptan google pay",
+        "aceptan zelle",
+        "aceptan venmo"
+    };
 
     // Neutral tokens that do not contribute to intent scoring
     private static readonly HashSet<string> NeutralTokens = new(StringComparer.Ordinal)
     {
         // ==============================
-        // EN — polite / connector / filler
+        // EN — polite / connectors / fillers
         // ==============================
-        "hi","hello","hey","thanks","thank you","ok","okay","please",
-        "yes","no","sure","maybe","fine","cool","alright","right","well",
+        "hi","hello","hey","yo","good morning","good afternoon","good evening",
+        "thanks","thank you","thank","please","welcome",
+        "ok","okay","alright","sure","fine","cool","great","nice","awesome",
+        "no problem","all good","sounds good","that’s fine","that’s okay",
+        "yes","no","maybe","k","yep","yeah","nah","mmhm","uh","um","well","right","really","actually","so","just","like","also","then","anyway","oh","hmm","uhh",
 
-        // Generic conversational helpers
-        "like","just","also","really","actually","so","then",
-
-        // Soft temporal context (not directive)
-        "today","tomorrow","morning","afternoon","evening","tonight","soon","later",
-        "this","next","day","time",
-
-        // ==============================
-        // RU — нейтральные
-        // ==============================
-        "привет","здравствуйте","ок","хорошо","пожалуйста","спасибо","ага",
-        "да","нет","можно","ладно",
-
-        // Время
-        "сегодня","завтра","утром","днем","вечером","позже","скоро","сейчас",
+        // Soft temporal / contextual (non-directive)
+        "today","tomorrow","morning","afternoon","evening","tonight","soon","later","now",
+        "this","next","day","time","week","month",
 
         // ==============================
-        // ES — нейтральные
+        // RU — нейтральные / вежливые
         // ==============================
-        "hola","buenas","gracias","ok","vale","claro","por favor",
-        "sí","si","no","tal vez","quizas","quizás",
+        "привет","здравствуйте","хай","ок","ладно","ага","угу",
+        "спасибо","пожалуйста","всё хорошо","все хорошо","нормально","ничего","ясно","понятно",
+        "да","нет","можно","ну","так","вроде","как бы","ладненько","ага ладно","окей","хорошо","замечательно",
+        "позже","скоро","сейчас","потом","утром","днем","вечером","завтра","сегодня",
 
-        // Tiempo
-        "hoy","mañana","tarde","noche","ahora","pronto","después"
+        // ==============================
+        // ES — neutrales / amables
+        // ==============================
+        "hola","buenas","buenos días","buenas tardes","buenas noches",
+        "gracias","de nada","por favor","ok","vale","claro","perfecto","bien","genial",
+        "sí","si","no","tal vez","quizás","quizas","ajá","mmm","eh","bueno","pues","entonces","así","también","ahora","luego","pronto","después","hoy","mañana","tarde","noche"
     };
+
 
 
     // Mapping from Intent to associated keywords/phrases

@@ -22,6 +22,16 @@ public class Program
         // Register state store for dialog memory
         builder.Services.AddSingleton<IStateStore, InMemoryStateStore>();
 
+        // Register NLU service for intent recognition
+        builder.Services.AddSingleton<INluService, RulesNluService>();
+
+        // Alternatively, use an LLM-based NLU service
+        //builder.Services.AddSingleton<ILlmNluService>
+
+        // Registrer decision policy for dialog management
+        builder.Services.AddSingleton<IDecisionPolicy, DefaultDecisionPolicy>();
+
+
         var app = builder.Build();
 
         // Configure Forwarded Headers Middleware to process X-Forwarded-* headers

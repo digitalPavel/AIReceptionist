@@ -45,7 +45,7 @@ public sealed class InMemoryStateStore : IStateStore
     {
         ValidateCallSid(callSid);
 
-        return _map.GetOrAdd(callSid, key => new DialogState { CallSid = key });
+        return _map.GetOrAdd(callSid, key => new DialogState { CallSid = key, LastUpdated = DateTimeOffset.UtcNow });
     }
 
     /// <summary>
@@ -58,8 +58,12 @@ public sealed class InMemoryStateStore : IStateStore
 
         _map.AddOrUpdate(
             callSid,
-            key => updater(new DialogState { CallSid = key }),
-            (_, current) => updater(current)
+            key => updater(new DialogState { CallSid = key, LastUpdated = DateTimeOffset.UtcNow }),
+            (_, current) =>
+            {
+                var updated = updater(current);
+                return updated with { LastUpdated = DateTimeOffset.UtcNow };
+            } 
         );
     }
 

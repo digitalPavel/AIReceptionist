@@ -78,6 +78,8 @@ public record DialogState
     public Asked Asked { get; init; } = Asked.None;// What is being asked from the user right now("Nothing is asked yet")
     public bool IsDone { get; init; } = false;// True when the dialog is over
 
+    public DateTimeOffset LastUpdated { get; init; } = DateTimeOffset.UtcNow; // When was the state last updated
+
     #region Group booking related
     public List<PartyMember> PartyMembers { get; init; } = new(); // List of people in the group
     public  int PartyIndex { get; init; } = 0; // Index of the current person in the group being processed

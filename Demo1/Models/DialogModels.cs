@@ -1,6 +1,16 @@
 ﻿namespace Demo1.Models;
 
 /// <summary>
+/// Specifies the gender options applicable to a service.
+/// </summary>
+public enum ServiceGender
+{
+    Unknown,
+    Man,
+    Woman
+}
+
+/// <summary>
 /// Caller's intention 
 /// </summary>
 public enum Intent

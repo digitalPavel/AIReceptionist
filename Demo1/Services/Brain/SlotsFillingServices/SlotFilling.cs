@@ -1,7 +1,10 @@
-﻿using System.Globalization;
+﻿using Demo1.Models;
+using System.Globalization;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using Twilio.Jwt.AccessToken;
 using Twilio.TwiML.Voice;
 
 ///ASR Text → Normalization → Canonical Name → Slot Filling
@@ -20,7 +23,7 @@ public static class SlotFilling
     //    _lexicon = lexicon;
     //}
 
-     #region Service and master data set up
+    #region Service and master data set up ---------------------------------------------------------------------------------------
 
     // List of available masters
     public static readonly string[] Masters = { "Nikita", "Emily", "Pablo" };
@@ -48,10 +51,10 @@ public static class SlotFilling
         ["Pablo"] = new(StringComparer.OrdinalIgnoreCase) { "Haircut", "Men haircut", "Beard", "Kids haircut" }
     };
 
-    #endregion
+    #endregion -------------------------------------------------------------------------------------------------------
 
 
-    #region Regex & constants (precompiled)
+    #region Regex & constants (precompiled) --------------------------------------------------------------------------
 
     // Regex to normalize spaces
     private static readonly Regex RxSpaces = new("\\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -122,7 +125,7 @@ public static class SlotFilling
     private static Regex RxWithMaster = null!;
     private static Regex RxMasterAny = null!;
 
-    #endregion
+    #endregion ---------------------------------------------------------------------------------------
 
     // Master normalization 
     public static readonly Dictionary<string, string> MasterNormalize =
@@ -163,64 +166,63 @@ public static class SlotFilling
     /// </summary>
     static SlotFilling()
     {
-        static SlotFilling()
-        {
-            // Collect all master name variants:
-            // canonical names + all normalized aliases/transliterations
-            var allNameVariants = Masters
-                .SelectMany(m => new[] { m }.Concat(
-                    MasterNormalize.Where(kv => string.Equals(kv.Value, m, StringComparison.OrdinalIgnoreCase))
-                                   .Select(kv => kv.Key)))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(s => s.Length) // longest first → avoids partial matches
-                .ToArray();
+        // Collect all master name variants:
+        // canonical names + all normalized aliases/transliterations
+        var allNameVariants = Masters
+            .SelectMany(m => new[] { m }.Concat(
+                MasterNormalize.Where(kv => string.Equals(kv.Value, m, StringComparison.OrdinalIgnoreCase))
+                                .Select(kv => kv.Key)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(s => s.Length) // longest first → avoids partial matches
+            .ToArray();
 
-            // Build regex pattern for names (escaped for safety)
-            var namesPattern = string.Join("|", allNameVariants.Select(Regex.Escape));
+        // Build regex pattern for names (escaped for safety)
+        var namesPattern = string.Join("|", allNameVariants.Select(Regex.Escape));
 
-            // Soft letter boundaries, prevent matching inside words (e.g., "emilya" or "nikitaland")
-            var BL = @"(?<=^|[^\p{L}])";
-            var BR = @"(?=$|[^\p{L}])";
+        // Soft letter boundaries, prevent matching inside words (e.g., "emilya" or "nikitaland")
+        var BL = @"(?<=^|[^\p{L}])";
+        var BR = @"(?=$|[^\p{L}])";
 
-            // Flexible spacing and punctuation between tokens
-            var SEP = @"[ \t\u00A0._\-—–]*";
+        // Flexible spacing and punctuation between tokens
+        var SEP = @"[ \t\u00A0._\-—–]*";
 
-            // Prefix expressions that indicate "with/to/for master <Name>" in EN/RU/ES
-            var preName =
-            @"(?:" +
-                // EN: booking verbs + roles
-                $@"(?:(?:with|w/|to|for|by|via){SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?)|" +
-                $@"(?:(?:book|schedule|set|make|put|reserve|fix|arrange){SEP}(?:me{SEP})?(?:with|w/|to)?{SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?)|" +
-                $@"(?:(?:appointment|appt){SEP}(?:with|w/|to){SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?)|" +
-                $@"(?:(?:see|prefer|request|change{SEP}to|switch{SEP}to){SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?){SEP}with?)|" +
+        // Prefix expressions that indicate "with/to/for master <Name>" in EN/RU/ES
+        var preName =
+        @"(?:" +
+            // EN: booking verbs + roles
+            $@"(?:(?:with|w/|to|for|by|via){SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?)|" +
+            $@"(?:(?:book|schedule|set|make|put|reserve|fix|arrange){SEP}(?:me{SEP})?(?:with|w/|to)?{SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?)|" +
+            $@"(?:(?:appointment|appt){SEP}(?:with|w/|to){SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?)|" +
+            $@"(?:(?:see|prefer|request|change{SEP}to|switch{SEP}to){SEP}(?:the{SEP})?(?:master|stylist|barber|colorist|colourist|nail{SEP}tech|technician)?){SEP}with?)|" +
 
-                // RU: "к/у/с мастеру", "запишите к ..."
-                $@"(?:(?:к|у|с|со){SEP}(?:мастер(?:у|а)?|стилист(?:у|а)?|барбер(?:у|а)?|колорист(?:у|а)?|техник(?:у|а)?{SEP}по{SEP}ногтям)?)|" +
-                $@"(?:(?:записать(?:ся)?|запишите|хочу|можно|нужна{SEP}запись|поставьте){SEP}(?:меня{SEP})?(?:к|к{SEP}мастеру|у|с))|" +
-                $@"(?:(?:на{SEP}при(?:ё|е)м){SEP}(?:к|у|с))|" +
+            // RU: "к/у/с мастеру", "запишите к ..."
+            $@"(?:(?:к|у|с|со){SEP}(?:мастер(?:у|а)?|стилист(?:у|а)?|барбер(?:у|а)?|колорист(?:у|а)?|техник(?:у|а)?{SEP}по{SEP}ногтям)?)|" +
+            $@"(?:(?:записать(?:ся)?|запишите|хочу|можно|нужна{SEP}запись|поставьте){SEP}(?:меня{SEP})?(?:к|к{SEP}мастеру|у|с))|" +
+            $@"(?:(?:на{SEP}при(?:ё|е)м){SEP}(?:к|у|с))|" +
 
-                // ES: "cita con", "reservar con", "al estilista"
-                $@"(?:(?:con|a|al|a{SEP}la|para){SEP}(?:el|la)?{SEP}(?:maestro|estilista|barbero|colorista|t(?:e|é)cnico(?:{SEP}de{SEP}u(?:n|ñ)as)?)?)|" +
-                $@"(?:(?:reservar|agendar|poner|hacer){SEP}(?:me{SEP})?(?:una{SEP})?(?:cita|turno)?{SEP}(?:con|a|al|para))|" +
-                $@"(?:(?:cita|turno){SEP}(?:con|a|al){SEP}(?:el|la)?{SEP}(?:estilista|barbero|colorista|t(?:e|é)cnico(?:{SEP}de{SEP}u(?:n|ñ)as)?)?)" +
-            @")";
+            // ES: "cita con", "reservar con", "al estilista"
+            $@"(?:(?:con|a|al|a{SEP}la|para){SEP}(?:el|la)?{SEP}(?:maestro|estilista|barbero|colorista|t(?:e|é)cnico(?:{SEP}de{SEP}u(?:n|ñ)as)?)?)|" +
+            $@"(?:(?:reservar|agendar|poner|hacer){SEP}(?:me{SEP})?(?:una{SEP})?(?:cita|turno)?{SEP}(?:con|a|al|para))|" +
+            $@"(?:(?:cita|turno){SEP}(?:con|a|al){SEP}(?:el|la)?{SEP}(?:estilista|barbero|colorista|t(?:e|é)cnico(?:{SEP}de{SEP}u(?:n|ñ)as)?)?)" +
+        @")";
 
-            // Small timeout prevents catastrophic backtracking in noisy input
-            var timeout = TimeSpan.FromMilliseconds(150);
+        // Small timeout prevents catastrophic backtracking in noisy input
+        var timeout = TimeSpan.FromMilliseconds(150);
 
-            // Pattern: "prefix + Name"
-            RxWithMaster = new Regex(
-                $@"{BL}{preName}{SEP}({namesPattern}){BR}",
-                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
-                timeout);
+        // Pattern: "prefix + Name"
+        RxWithMaster = new Regex(
+            $@"{BL}{preName}{SEP}({namesPattern}){BR}",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+            timeout);
 
-            // Pattern: "bare Name" (fallback if context missing)
-            RxMasterAny = new Regex(
-                $@"{BL}({namesPattern}){BR}",
-                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
-                timeout);
-        }
+        // Pattern: "bare Name" (fallback if context missing)
+        RxMasterAny = new Regex(
+            $@"{BL}({namesPattern}){BR}",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+            timeout);
     }
+
+    #region Normalization Helpers ---------------------------------------------------------------------------------
 
     /// <summary>
     ///  Lowercase, strip diacritics, collapse spaces, and normalize common colloquialisms.
@@ -232,7 +234,7 @@ public static class SlotFilling
 
         // 1) Lowercase & remove diacritics (accents)
         var lower = s.ToLowerInvariant().Normalize(NormalizationForm.FormD);
-        
+
         var sb = new StringBuilder(lower.Length);
 
         foreach (var ch in lower)
@@ -267,7 +269,44 @@ public static class SlotFilling
         return RxSpaces.Replace(t, " ").Trim();
     }
 
-    // Canonical services & synonyms 
+    /// <summary>
+    /// A whole word match requires that the word is not immediately preceded or followed by a letter
+    /// or digit. For example, searching for "cat" in "concatenate" returns false, but searching for "cat" in "the cat
+    /// sat" returns true
+    /// </summary>
+    private static bool ContainsWordFast(string text, string word)
+    {
+        if (string.IsNullOrEmpty(text))
+            return false;
+
+        // 1) Find first occurrence (case-insensitive)
+        int idx = text.IndexOf(word, StringComparison.OrdinalIgnoreCase);
+
+        // 2) Check word boundaries
+        while (idx >= 0)
+        {
+            // Check left word boundary
+            bool leftOk = idx == 0 || !char.IsLetterOrDigit(text[idx - 1]);
+
+            // Check right word boundary
+            int end = idx + word.Length;
+            bool rightOk = end == text.Length || !char.IsLetterOrDigit(text[end]);
+
+            // If both boundaries are ok, we found a whole word match and return true
+            if (leftOk && rightOk) return true;
+
+            // Otherwise, continue searching
+            idx = text.IndexOf(word, idx + 1, StringComparison.Ordinal);
+        }
+        // No whole word match found
+        return false;
+    }
+
+    #endregion Normalization Helpers ---------------------------------------------------------------------------------
+
+    #region Canonical services & synonyms ----------------------------------------------------------------------------
+
+    // Service synonyms
     public static readonly Dictionary<string, string> ServiceSynonyms =
     new(StringComparer.OrdinalIgnoreCase)
     {
@@ -354,6 +393,10 @@ public static class SlotFilling
         ["barba"] = "Beard",
     };
 
+    // Normalized synonyms to the common format for fast lookup and resilience 
+    public static readonly Dictionary<string, string> SynonymsNormalize =
+        ServiceSynonyms.ToDictionary(kv => Normalize(kv.Key), kv => kv.Value, StringComparer.Ordinal);
+
     // Tokens for each canonical service
     public static readonly Dictionary<string, string[]> CanonicalToTokens =
     new(StringComparer.OrdinalIgnoreCase)
@@ -400,31 +443,316 @@ public static class SlotFilling
             "детск","ребён","ребен","мальчик","девочка","детям","для детей","школьник","садик"
         },
 
-            // ——— COLOR ———
+        // ——— COLOR ———
         ["Color"] = new[]
         {
             "color","colour","dye","toner","coloring","colored","paint",
             "окрашивание","покрасить","краситель","тонировка","coloracion","tintura"
         },
 
-            // ——— BALAYAGE ———
+        // ——— BALAYAGE ———
         ["Balayage"] = new[]
         {
             "balayage","балаяж","балайяж"
         },
 
-            // ——— HIGHLIGHTS / LOWLIGHTS ———
+        // ——— HIGHLIGHTS / LOWLIGHTS ———
         ["Highlights"] = new[]
         {
             "highlights","highlight","lowlights","мелирование","мелира","блонд пряди"
         },
-            // ——— BEARD ———
+        // ——— BEARD ———
         ["Beard"] = new[]
         {
             "beard","beard trim","борода","барба","подравнять бороду","оформление бороды"
         }
     };
 
+    #endregion Canonical services & synonyms ----------------------------------------------------------------------------
 
+    #region Gender specialization (Adults only) -------------------------------------------------------------------------
+
+    private static readonly string[] MenTokens =
+    {
+        // English
+        "man", "men", "man's", "men's",
+        "male", "males",
+        "gentleman", "gentlemen", "gent",
+        "guy", "guys",
+        "boy", "boys",
+        "lad", "lads",
+
+        // Spanish
+        "hombre", "hombres",
+        "caballero", "caballeros",
+        "varon", "varones",      // varón
+        "senor", "senores",      // señor
+        "chico", "chicos",
+        "nino", "ninos",         // niño / niños
+
+        // Russian (номинатив и самые частые формы)
+        "мужчина", "мужчины",
+        "парень", "парни",
+        "юноша", "юноши",
+        "мужик", "мужики"
+    };
+
+    private static readonly string[] WomenTokens =
+    {
+        // English
+        "woman", "women", "woman's", "women's",
+        "female", "females",
+        "lady", "ladies",
+        "girl", "girls",
+        "gal", "gals",
+
+        // Spanish
+        "mujer", "mujeres",
+        "dama", "damas",
+        "senora", "senoras",         // señora
+        "senorita", "senoritas",     // señorita
+        "chica", "chicas",
+        "nina", "ninas",             // niña / niñas
+
+        // Russian
+        "женщина", "женщины",
+        "девушка", "девушки",
+        "дама", "дамы",
+        "леди",                      // заимствованное, часто в beauty-контексте
+        "девочка", "девочки"
+    };
+
+    private static readonly string[] MenRel =
+    {
+        // Partners
+        "husband", "boyfriend", "fiance",
+        "esposo", "novio",
+
+        // Relatives
+        "father", "dad", "daddy", "stepfather",
+        "son", "sons",
+        "brother", "bro", "bros",
+        "grandfather", "grandpa", "granddad", "granddaddy",
+        "uncle",
+        "nephew",
+        "padre", "papa",
+        "hijo", "hijos",
+        "hermano", "hermanos",
+        "abuelo", "abuelos",
+        "tio", "tios",
+        "sobrino",
+
+        // Friends
+        "friend", "buddy", "pal", "dude", "homie", "mate",
+        "amigo", "amigos"
+
+        // RU
+        ,"муж", "парень", "жених",
+        "папа", "отец", "батя", "батяня",
+        "сын", "сыночек",
+        "брат", "братик",
+        "дед", "дедушка", "дедуля",
+        "дядя",
+        "племянник",
+        "друг", "дружище", "приятель"
+    };
+
+    private static readonly string[] WomenRel =
+    {
+        // Partners
+        "wife", "girlfriend", "fiancee",
+        "esposa", "novia",
+
+        // Relatives
+        "mother", "mom", "mommy", "stepmother",
+        "daughter", "daughters",
+        "sister", "sis",
+        "grandmother", "grandma", "granny", "nana",
+        "aunt",
+        "niece",
+        "madre", "mama",
+        "hija", "hijas",
+        "hermana", "hermanas",
+        "abuela", "abuelas",
+        "tia", "tias",
+        "sobrina",
+
+        // Friends
+        "friend", "girlfriend", "bestie",
+        "amiga", "amigas",
+        "lady", "miss", "ms", "mrs",
+        "senora", "señora", "senorita", "señorita",
+
+        // RU
+        "жена", "невеста",
+        "мама", "мамочка", "мамуля",
+        "дочь", "дочка",
+        "сестра", "сестрёнка", "сестричка",
+        "бабушка", "бабуля", "бабка",
+        "тетя", "тётя",
+        "племянница",
+        "подруга", "лучшая подруга"
+    };
+
+    private static readonly string[] MenPhraseTokens =
+    {
+        "for him",
+        "for my husband",
+        "for my boyfriend",
+        "for my son",
+        "for my brother",
+        "for my dad",
+        "for my father",
+        "for my grandpa",
+
+        "para el",
+        "para mi esposo",
+        "para mi novio",
+        "para mi hijo",
+        "para mi hermano",
+        "para mi papa",
+        "para mi padre",
+        "para mi abuelo",
+
+        "для него",
+        "для моего мужа",
+        "для парня",
+        "для моего сына",
+        "для моего брата",
+        "для моего папы",
+        "для моего отца",
+        "для моего дедушки"
+    };
+
+    private static readonly string[] WomenPhraseTokens =
+    {
+        "for her",
+        "for my wife",
+        "for my girlfriend",
+        "for my daughter",
+        "for my sister",
+        "for my mom",
+        "for my mother",
+        "for my grandma",
+
+        "para ella",
+        "para mi esposa",
+        "para mi novia",
+        "para mi hija",
+        "para mi hermana",
+        "para mi mama",
+        "para mi madre",
+        "para mi abuela",
+
+        "для нее",
+        "для неё",
+        "для моей жены",
+        "для моей девушки",
+        "для моей дочери",
+        "для моей дочки",
+        "для моей сестры",
+        "для моей мамы",
+        "для моей матери",
+        "для моей бабушки"
+    };
+
+    private static readonly string[] RussianMenRoots =
+    {
+        "муж",   // мужчина, мужской, мужу, мужа…
+        "парн"   // парень, парня, парню…
+    };
+
+    private static readonly string[] RussianWomenRoots =
+    {
+        "жен",      // женщина, женщины, женский…
+        "девуш"     // девушка, девушке…
+    };
+
+    private static readonly string[] RussianPronounPhrases =
+    {
+        "для него",
+        "для нее",
+        "для неё"
+    };
+
+
+    /// <summary>
+    /// This method analyzes the input text for the presence of masculine or feminine tokens, phrases, and
+    /// roots in multiple languages. If both masculine and feminine indicators are found, or if neither is found, the
+    /// method returns <see cref="ServiceGender.Unisex"/>
+    /// </summary>
+    public static ServiceGender TryInferServiceGender(string text)
+    {
+        var t = Normalize(text);
+
+        bool man =
+            MenTokens.Any(tok => ContainsWordFast(t, tok)) ||
+            MenRel.Any(tok => ContainsWordFast(t, tok)) ||
+            MenPhraseTokens.Any(p => t.Contains(p)) ||  
+            RussianMenRoots.Any(root => t.Contains(root));
+
+        bool woman =
+            WomenTokens.Any(tok => ContainsWordFast(t, tok)) ||
+            WomenRel.Any(tok => ContainsWordFast(t, tok)) ||
+            WomenPhraseTokens.Any(p => t.Contains(p)) ||
+            RussianWomenRoots.Any(root => t.Contains(root)) ||
+            RussianPronounPhrases.Any(p => t.Contains(p));
+
+        // If both or neither detected, return Unisex
+        if (man ^ woman)
+            return man ? ServiceGender.Man : ServiceGender.Woman;
+
+        return ServiceGender.Unknown;
+    }
+
+    /// <summary>
+    /// This method is typically used to decide if additional clarification is needed from the user
+    /// when booking a haircut, especially when the service is not gender-specific and the user's gender cannot be
+    /// determined from the provided information
+    /// </summary>
+    public static bool ShouldAskGenderForHaircut(string text, IEnumerable<string> services)
+    {
+        if(services is null)
+            return false;
+
+        // Convert to list for multiple enumerations
+        var list = services as IList<string> ?? services.ToList();
+
+        // 1) If no generic haircut, no need to ask
+        bool hasGenericHaircut = list.Any(s =>
+            s.Equals("Haircut", StringComparison.OrdinalIgnoreCase));
+
+        if (!hasGenericHaircut)
+            return false;
+
+        // 2) Try identify gender
+        var g = TryInferServiceGender(text);
+
+        // 3) Ask only if unknown
+        return g == ServiceGender.Unknown;
+    }
+
+    /// <summary>
+    /// Replaces a generic "Haircut" with a gender-specific version ("Men haircut" / "Women haircut") 
+    /// when gender is known. If gender is unknown, returns the list unchanged.
+    /// </summary>
+    public static List<string> MapHaircutByGender(IEnumerable<string> services, ServiceGender g)
+    {
+        var list = services.ToList();
+
+        // Return list if gender unknown
+        if (g == ServiceGender.Unknown)
+            return list;
+
+        // Replace generic “Haircut” with a gender - specific variant(“Men haircut” / “Women haircut”)
+        // only when gender is known. Other services (e.g., "Kids haircut") remain untouched.  
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (list[i].Equals("Haircut", StringComparison.OrdinalIgnoreCase))
+                list[i] = g == ServiceGender.Man ? "Men haircut" : "Women haircut";         
+        }
+        return list;
+    }
+
+    #endregion Gender specialization (Adults only) -------------------------------------------------------------------------
 }
-

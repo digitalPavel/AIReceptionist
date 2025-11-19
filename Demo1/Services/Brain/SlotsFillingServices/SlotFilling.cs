@@ -7,12 +7,16 @@ using System.Text.RegularExpressions;
 using Twilio.Jwt.AccessToken;
 using Twilio.TwiML.Voice;
 
+using Microsoft.Recognizers.Text;
+using Microsoft.Recognizers.Text.DateTime;
+using Microsoft.Recognizers.Text.Number;
+
 ///ASR Text → Normalization → Canonical Name → Slot Filling
 namespace Demo1.Services.Brain.SlotsFillingServices;
 
 public static class SlotFilling
 {
-    //  PROVIDERS FOR DB in FUETURE!
+    //  PROVIDERS FOR DB in FEUTURE!
     //private static IMasterCatalog? _catalog;
     //private static IServiceLexicon? _lexicon;
 
@@ -755,4 +759,1032 @@ public static class SlotFilling
     }
 
     #endregion Gender specialization (Adults only) -------------------------------------------------------------------------
+
+    #region Group / Party (count + kind) -----------------------------------------------------------------------------------
+
+    private static readonly Dictionary<string, int> NumWordsEn = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["one"] = 1,
+        ["two"] = 2,
+        ["three"] = 3,
+        ["four"] = 4,
+        ["five"] = 5,
+        ["six"] = 6,
+        ["seven"] = 7,
+        ["eight"] = 8,
+        ["nine"] = 9,
+        ["ten"] = 10,
+
+        ["couple"] = 2,
+        ["both"] = 2,
+        ["pair"] = 2,
+        ["duo"] = 2,
+        ["twosome"] = 2,   
+    };
+
+    private static readonly Dictionary<string, int> NumWordsRu = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["один"] = 1,
+        ["одного"] = 1,
+        ["одна"] = 1,
+        ["одной"] = 1,
+        ["одну"] = 1,
+        ["одиночка"] = 1, 
+
+        ["двое"] = 2,
+        ["двоих"] = 2,
+        ["двум"] = 2,
+        ["двумя"] = 2,
+        ["два"] = 2,
+        ["двух"] = 2,
+        ["пара"] = 2,
+        ["парочка"] = 2,
+        ["оба"] = 2,
+        ["обоих"] = 2,
+        ["обе"] = 2,
+        ["обеих"] = 2,
+
+        ["три"] = 3,
+        ["трех"] = 3,
+        ["трёх"] = 3,
+        ["трое"] = 3,
+        ["троих"] = 3,
+        ["троим"] = 3,
+
+        ["четыре"] = 4,
+        ["четверо"] = 4,
+        ["четверых"] = 4,
+
+        ["пять"] = 5,
+        ["пятеро"] = 5,
+        ["пятерых"] = 5,
+
+        ["шесть"] = 6,
+        ["семь"] = 7,
+        ["восемь"] = 8,
+        ["девять"] = 9,
+        ["десять"] = 10,
+    };
+
+    private static readonly Dictionary<string, int> NumWordsEs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["uno"] = 1,
+        ["una"] = 1,
+
+        ["dos"] = 2,
+        ["ambos"] = 2,
+        ["ambas"] = 2,
+        ["par"] = 2,
+        ["pareja"] = 2,  
+
+        ["tres"] = 3,
+        ["cuatro"] = 4,
+        ["cinco"] = 5,
+        ["seis"] = 6,
+        ["siete"] = 7,
+        ["ocho"] = 8,
+        ["nueve"] = 9,
+        ["diez"] = 10,
+    };
+
+    private static readonly string[] KidsGroupTokens =
+    {
+       // ========= ENGLISH =========
+        "kid", "kids",
+        "child", "children",
+        "baby", "babies",
+        "newborn", "newborns",
+        "infant", "infants",
+        "toddler", "toddlers",
+        "boy", "boys",
+        "girl", "girls",
+        "teen", "teens",
+        "teenager", "teenagers",
+        "son", "sons",
+        "daughter", "daughters",
+
+        // ========= SPANISH (NO ACCENTS: Normalize() уже убирает их из текста) =========
+        "nino", "nina", "ninos", "ninas",
+        "hijo", "hija", "hijos", "hijas",
+        "bebe", "bebes",
+        "pequeno", "pequena", "pequenos", "pequenas",
+        "chico", "chica", "chicos", "chicas",
+        "nene", "nena", "nenes", "nenas",
+        "menor", "menores",
+        "adolescente", "adolescentes",
+
+        // ========= RUSSIAN =========
+        "детей", "детям", "дети",
+        "ребенок", "ребёнок", "ребенка", "ребёнка", "ребенку", "ребёнку",
+        "ребят", "ребята",
+        "малыш", "малыша", "малышу", "малыши", "малышам",
+        "младенец", "младенца", "младенцу", "младенцы",
+        "грудничок", "грудничка", "грудничку", "груднички",
+        "мальчик", "мальчика", "мальчику", "мальчики",
+        "девочка", "девочки", "девочкам",
+        "сын", "сына", "сыну", "сыновья",
+        "дочь", "дочери", "дочкам",
+        "школьник", "школьника", "школьники", "школьникам",
+        "подросток", "подростка", "подростки"
+    };
+
+    private static readonly string[] AdultTokens =
+    {
+         // ========= ENGLISH =========
+        "adult", "adults",
+        "we", "both of us", "all of us",
+
+        "man", "men",
+        "woman", "women",
+
+        "wife", "husband",
+        "girlfriend", "boyfriend",
+        "partner", "partners",
+
+        "mom", "mother",
+        "dad", "father",
+        "parent", "parents",
+
+        "friend", "friends",
+        "buddy", "buddies",
+
+        // ========= SPANISH (NO ACCENTS IN TOKENS) =========
+        "adulto", "adultos", "adulta", "adultas",
+        "somos", "nosotros", "nosotras",
+        "pareja", "parejas",
+
+        "hombre", "hombres",
+        "mujer", "mujeres",
+
+        "esposo", "esposa",
+        "novio", "novia",
+        "novios", "novias",
+
+        "padre", "padres",
+        "madre",
+        "mis padres",
+
+        "amigo", "amigos",
+        "amiga", "amigas",
+
+        // ========= RUSSIAN =========
+        "мы", "мы с",
+        "взрослый", "взрослые",
+
+        "мужчина", "мужчины",
+        "женщина", "женщины",
+
+        "жена", "муж",
+        "девушка", "парень",
+        "супруг", "супруга",
+
+        "мама", "мамы", "маме", "маму",
+        "папа", "папы", "папе", "папу",
+        "родитель", "родители",
+
+        "друг", "друзья",
+        "подруга", "подруги",
+        "приятель", "приятели"
+    };
+
+    /// <summary>
+    /// Tries to extract party size (1..10) and kind (Adults / Kids / Mixed) from the input text.
+    /// </summary>
+    public static (int? size, string kind, string reason) TryExtractParty(string text)
+    {
+        var t = Normalize(text);
+
+        // 1) MSRT как первый источник
+        int? size = RecognizePartySizeWithMsrt(text);
+        string kind = "Unknown";
+        var reasons = new List<string>();
+
+        if (size is int ps0)
+            reasons.Add($"msrt={ps0}");
+
+        // Локальный компаратор для строк
+        static bool Eq(string a, string b) =>
+            string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+        // ===== Локальный хелпер: попытаться распарсить число из токена (цифра или слово) =====
+        bool TryParsePartyNumberToken(string token, out int value)
+        {
+            value = 0;
+            if (string.IsNullOrWhiteSpace(token))
+                return false;
+
+            token = token.Trim().ToLowerInvariant();
+
+            // 1) Цифры 1..10
+            if (int.TryParse(token, out var n) && n >= 1 && n <= 10)
+            {
+                value = n;
+                return true;
+            }
+
+            // 2) По словарям числительных (твои словари)
+            if (NumWordsEn.TryGetValue(token, out value))
+                return true;
+            if (NumWordsRu.TryGetValue(token, out value))
+                return true;
+            if (NumWordsEs.TryGetValue(token, out value))
+                return true;
+
+            // 3) Доп. русские формы, которых нет в словаре, но полезны в mixed-паттернах
+            switch (token)
+            {
+                case "трое":
+                case "троих":
+                    value = 3; return true;
+                case "четверо":
+                case "четверых":
+                    value = 4; return true;
+                case "пятеро":
+                case "пятерых":
+                    value = 5; return true;
+                case "шестеро":
+                case "шестерых":
+                    value = 6; return true;
+                case "семеро":
+                case "семерых":
+                    value = 7; return true;
+                case "восьмеро":
+                case "восьмерых":
+                    value = 8; return true;
+                case "девятеро":
+                case "девятерых":
+                    value = 9; return true;
+                case "десятеро":
+                case "десятерых":
+                    value = 10; return true;
+            }
+
+            return false;
+        }
+
+        // ===== 2) Цифры (простой кейс: отдельные числа 1..10) =====
+        var mDigits = Regex.Matches(t, @"\b(\d{1,2})\b");
+        foreach (Match m in mDigits)
+        {
+            if (int.TryParse(m.Value, out var n) && n >= 1 && n <= 10)
+            {
+                size = Math.Max(size ?? 0, n);
+                reasons.Add($"digits={n}");
+            }
+        }
+
+        // ===== 3) Словесные числительные (en/ru/es) — общий максимум =====
+        foreach (var kv in NumWordsEn)
+            if (ContainsWordFast(t, kv.Key))
+            {
+                size = Math.Max(size ?? 0, kv.Value);
+                reasons.Add($"en={kv.Key}:{kv.Value}");
+            }
+
+        foreach (var kv in NumWordsRu)
+            if (ContainsWordFast(t, kv.Key))
+            {
+                size = Math.Max(size ?? 0, kv.Value);
+                reasons.Add($"ru={kv.Key}:{kv.Value}");
+            }
+
+        foreach (var kv in NumWordsEs)
+            if (ContainsWordFast(t, kv.Key))
+            {
+                size = Math.Max(size ?? 0, kv.Value);
+                reasons.Add($"es={kv.Key}:{kv.Value}");
+            }
+
+        // ===== 4) Явные паттерны "X adults + Y kids" (EN / ES / RU, цифры и слова) =====
+        int? mixedTotal = null;
+
+        void TryApplyMixedPattern(Match m)
+        {
+            if (!m.Success) return;
+
+            var gA = m.Groups["a"];
+            var gK = m.Groups["k"];
+            if (!gA.Success || !gK.Success) return;
+
+            if (!TryParsePartyNumberToken(gA.Value, out var a)) return;
+            if (!TryParsePartyNumberToken(gK.Value, out var k)) return;
+
+            var total = a + k;
+            if (total < 1 || total > 10) return;
+
+            mixedTotal = Math.Max(mixedTotal ?? 0, total);
+            reasons.Add($"adults+kids={a}+{k}->{total}");
+        }
+
+        // Паттерны словесных числительных (с учётом твоих словарей)
+        const string EnNumWordPattern =
+            "one|two|three|four|five|six|seven|eight|nine|ten|couple|both|pair";
+        const string RuNumWordPattern =
+            "один|одного|одна|двое|двоих|два|двух|три|трех|трёх|трое|троих|четыре|четверо|четверых|пять|шесть|семь|семеро|восемь|восьмеро|девять|девятеро|десять|десятеро|оба|обоих";
+        const string EsNumWordPattern =
+            "uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|ambos|par";
+
+        // EN: "3 adults ... 2 kids" и "two kids ... three adults"
+        var mixEn1 = Regex.Match(
+            t,
+            @"\b(?<a>\d{1,2}|" + EnNumWordPattern + @")\s+(?:adult(?:s)?|grown[- ]ups?)\b.*\b(?<k>\d{1,2}|" +
+            EnNumWordPattern + @")\s+(?:kid(?:s)?|child(?:ren)?|children)\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        var mixEn2 = Regex.Match(
+            t,
+            @"\b(?<k>\d{1,2}|" + EnNumWordPattern + @")\s+(?:kid(?:s)?|child(?:ren)?|children)\b.*\b(?<a>\d{1,2}|" +
+            EnNumWordPattern + @")\s+(?:adult(?:s)?|grown[- ]ups?)\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        TryApplyMixedPattern(mixEn1);
+        TryApplyMixedPattern(mixEn2);
+
+        // ES: "3 adultos ... 2 niños" / "dos niños ... tres adultos"
+        // t уже нормализован: "niños" -> "ninos"
+        var mixEs1 = Regex.Match(
+            t,
+            @"\b(?<a>\d{1,2}|" + EsNumWordPattern +
+            @")\s+adultos?\b.*\b(?<k>\d{1,2}|" + EsNumWordPattern +
+            @")\s+ninos?\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        var mixEs2 = Regex.Match(
+            t,
+            @"\b(?<k>\d{1,2}|" + EsNumWordPattern +
+            @")\s+ninos?\b.*\b(?<a>\d{1,2}|" + EsNumWordPattern +
+            @")\s+adultos?\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        TryApplyMixedPattern(mixEs1);
+        TryApplyMixedPattern(mixEs2);
+
+        // RU: "3 взрослых ... 2 детей" / "двое детей ... трое взрослых"
+        var mixRu1 = Regex.Match(
+            t,
+            @"\b(?<a>\d{1,2}|" + RuNumWordPattern +
+            @")\s+взросл\w*\b.*\b(?<k>\d{1,2}|" + RuNumWordPattern +
+            @")\s+дет(?:ей|и|ям|ят|ок)?\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        var mixRu2 = Regex.Match(
+            t,
+            @"\b(?<k>\d{1,2}|" + RuNumWordPattern +
+            @")\s+дет(?:ей|и|ям|ят|ок)?\b.*\b(?<a>\d{1,2}|" + RuNumWordPattern +
+            @")\s+взросл\w*\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        TryApplyMixedPattern(mixRu1);
+        TryApplyMixedPattern(mixRu2);
+
+        // ===== 5) Специальные кейсы "я и двое детей" / "me and my two kids" / "yo y mis dos hijos" =====
+        void TryApplyAdultPlusKids1(Match m, string langTag)
+        {
+            if (!m.Success) return;
+            var gK = m.Groups["k"];
+            if (!gK.Success) return;
+
+            if (!TryParsePartyNumberToken(gK.Value, out var kids)) return;
+            var total = 1 + kids; // 1 взрослый (я) + дети
+            if (total < 1 || total > 10) return;
+
+            size = Math.Max(size ?? 0, total);
+            reasons.Add($"adult+kids(implicit-1,{langTag})=1+{kids}->{total}");
+        }
+
+        // EN: "me and my two kids", "me with 2 children"
+        var meKidsEn = Regex.Match(
+            t,
+            @"\b(?:me|i)\s+(?:and|with)\s+(?:my\s+)?(?<k>\d{1,2}|" + EnNumWordPattern +
+            @")\s+(?:kid(?:s)?|child(?:ren)?|children|sons?|daughters?)\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        TryApplyAdultPlusKids1(meKidsEn, "en");
+
+        // ES: "yo y mis dos hijos"
+        var meKidsEs = Regex.Match(
+            t,
+            @"\byo\s+y\s+mis?\s+(?<k>\d{1,2}|" + EsNumWordPattern +
+            @")\s+(?:hijos?|hijas?|ninos?|ninas?)\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        TryApplyAdultPlusKids1(meKidsEs, "es");
+
+        // RU: "я и двое детей", "я с двумя детьми"
+        var meKidsRu = Regex.Match(
+            t,
+            @"\bя\s+(?:и|c)\s+(?<k>\d{1,2}|" + RuNumWordPattern +
+            @")\s+дет(?:ей|и|ям|ят|ок)?\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        TryApplyAdultPlusKids1(meKidsRu, "ru");
+
+        // Если есть mixedTotal, обновляем size
+        if (mixedTotal is int mt)
+        {
+            size = Math.Max(size ?? 0, mt);
+            // reasons уже содержит adults+kids=...
+        }
+
+        // ===== 6) Маркеры "for/для/para" (маркеры группы, размер не меняют) =====
+        if (Regex.IsMatch(t, @"\b(for|для|para)\b", RegexOptions.CultureInvariant))
+            reasons.Add("prep=for/для/para");
+
+        if (ContainsWordFast(t, "people") || t.Contains("людей") || t.Contains("человек") || t.Contains("personas"))
+            reasons.Add("people");
+
+        // ===== 7) Kids / Adults / Mixed =====
+        bool kidsMentioned = KidsGroupTokens.Any(k => ContainsWordFast(t, k));
+        bool adultMentioned = AdultTokens.Any(k => ContainsWordFast(t, k)) || t.Contains("взросл");
+
+        // явные смешанные фразы «мы с женой и сыном / my wife and son / mi esposa e hijo»
+        bool explicitMixed =
+            Regex.IsMatch(t, @"\b(wife|husband|girlfriend|boyfriend)\b.*\b(son|daughter|kid|child|children)\b",
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) ||
+            Regex.IsMatch(t, @"\b(esposa|esposo|novia|novio)\b.*\b(hijo|hija|ninos?|ninas?)\b",
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) ||
+            Regex.IsMatch(t, @"\b(жена|муж|девушка|парень)\b.*\b(сын|дочь|дет(?:и|ей|ям))\b",
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        if (kidsMentioned && adultMentioned)
+        {
+            kind = "Mixed";
+        }
+        else if (explicitMixed)
+        {
+            kind = "Mixed";
+            reasons.Add("explicit-mixed");
+        }
+        else if (kidsMentioned)
+        {
+            kind = "Kids";
+        }
+        else if (adultMentioned)
+        {
+            kind = "Adults";
+        }
+
+        return (size, kind, string.Join(",", reasons));
+    }
+
+
+    /// <summary>
+    /// If the party is marked as "Kids", this method tries to prefer kid-friendly
+    /// haircut services where it makes sense. It replaces generic/adult haircuts
+    /// (e.g. "Haircut", "Men haircut", "Women haircut") with "Kids haircut".
+    /// If partyKind is not "Kids", the original list is returned unchanged.
+    /// </summary>
+    private static List<string> PreferKidsForGroupIfNeeded(List<string> services, string partyKind)
+    {
+        // Gracefully handle null
+        if (services == null)
+            return new List<string>();
+
+        // If this is not a kids-only party, do not modify services
+        if (!string.Equals(partyKind, "Kids", StringComparison.OrdinalIgnoreCase))
+            return services;
+
+        // We clone to be safe, but you could also mutate in-place if you want
+        var list = services.ToList();
+
+        // Canonical adult haircut services that can be safely mapped to a kids haircut
+        var adultHaircutCanonicals = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Haircut",
+            "Men haircut",
+            "Women haircut"
+        };
+
+        const string kidsCanonical = "Kids haircut";
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            var svc = list[i];
+            if (string.IsNullOrWhiteSpace(svc))
+                continue;
+
+            // If it's already a kids haircut, leave it as-is
+            if (svc.Equals(kidsCanonical, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // 1) If the value is already a canonical service name
+            if (adultHaircutCanonicals.Contains(svc))
+            {
+                list[i] = kidsCanonical;
+                continue;
+            }
+
+            // 2) If it's a synonym, try to normalize via ServiceSynonyms → canonical
+            if (ServiceSynonyms.TryGetValue(svc, out var canonical))
+            {
+                // If the synonym resolves directly to "Kids haircut" – normalize to canonical
+                if (canonical.Equals(kidsCanonical, StringComparison.OrdinalIgnoreCase))
+                {
+                    list[i] = kidsCanonical;
+                    continue;
+                }
+
+                // If the synonym resolves to an adult haircut – map it to "Kids haircut"
+                if (adultHaircutCanonicals.Contains(canonical))
+                {
+                    list[i] = kidsCanonical;
+                    continue;
+                }
+            }
+        }
+
+        return list;
+    }
+
+    #endregion Group / Party (count + kind) --------------------------------------------------------------------------------
+
+    #region Services (with scoring) ----------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// This method normalizes the input and checks for matches against built-in synonyms and
+    /// canonical service tokens. It is useful for mapping user-entered or free-form text to a predefined set of service
+    /// names, such as "Haircut", "Men haircut", or "Manicure". The matching is case-insensitive and accounts for common
+    /// variations in phrasing
+    /// tokens.
+    /// </summary>
+    public static string? TryExtractService(string text)
+    {
+        var norm = text.Normalize();
+
+        // =========================
+        // 1) External lexicon (if provided from DB / admin UI)
+        // =========================
+        //if (_lexicon is not null)
+        //{
+        //    // 1.1 Direct alias match (e.g. custom marketing names)
+        //    var fromAlias = _lexicon.ResolveAliasInUtterance(norm);
+        //    if (!string.IsNullOrEmpty(fromAlias))
+        //        return fromAlias;
+
+        //    // 1.2 Haircut + gender hints + kids hints from lexicon tokens
+        //    var hc = _lexicon.HaircutTokens();
+        //    var men = _lexicon.MenHintTokens();
+        //    var wom = _lexicon.WomenHintTokens();
+        //    var kids = CanonicalToTokens["Kids haircut"];
+
+        //    bool hasHaircut = hc.Any(tok => ContainsWordFast(norm, tok));
+        //    bool kidsHint = kids.Any(tok => ContainsWordFast(norm, tok));
+        //    bool menHint = men.Any(tok => ContainsWordFast(norm, tok));
+        //    bool womenHint = wom.Any(tok => ContainsWordFast(norm, tok));
+
+        //    // “haircut” + kids hints → Kids haircut
+        //    if (hasHaircut && kidsHint)
+        //        return "Kids haircut";
+
+        //    // “haircut” + (men or women) hints → choose closest / unique
+        //    if (hasHaircut && (menHint || womenHint))
+        //    {
+        //        var hcIndex = IndexOfAnyWord(norm, hc);
+        //        var menIndex = IndexOfAnyWord(norm, men);
+        //        var womIndex = IndexOfAnyWord(norm, wom);
+
+        //        // Only men hints → Men haircut
+        //        if (menHint && womIndex < 0)
+        //            return "Men haircut";
+
+        //        // Only women hints → Women haircut
+        //        if (womenHint && menIndex < 0)
+        //            return "Women haircut";
+
+        //        // Both present → pick the one closer to “haircut”
+        //        if (hcIndex >= 0 && menIndex >= 0 && womIndex >= 0)
+        //            return Math.Abs(menIndex - hcIndex) <= Math.Abs(womIndex - hcIndex)
+        //                ? "Men haircut"
+        //                : "Women haircut";
+        //    }
+
+        //    // Just generic haircut, no gender or kids hints
+        //    if (hasHaircut)
+        //        return "Haircut";
+
+        //    // 1.3 Non-haircut codes (e.g. Color, Manicure, etc.)
+        //    foreach (var code in _lexicon.AllServiceCodes()
+        //                                .Where(c => c is not "Haircut"
+        //                                                and not "Men haircut"
+        //                                                and not "Women haircut"))
+        //    {
+        //        // We assume lexicon codes are canonical names,
+        //        // so we just check if they appear as words in the utterance.
+        //        if (ContainsWordFast(norm, code.ToLowerInvariant()))
+        //            return code;
+        //    }
+        //}
+
+        // 2) Built-in normalized synonyms (SynonymsNormalize)
+
+        // Check if text contains any known synonym
+        foreach (var kv in SynonymsNormalize)
+        {
+            if ((ContainsWordFast(norm, kv.Key)))
+            {
+                return kv.Value;
+            }
+        }
+
+        // 3) Canonical tokens (fallback rules if no other matches found)
+
+        // Check if text contains any canonical tokens
+        bool hasHC = CanonicalToTokens["Haircut"].Any(tok => ContainsWordFast(norm, tok));
+        bool kidsH = CanonicalToTokens["Kids haircut"].Any(tok => ContainsWordFast(norm, tok));
+        bool menH = CanonicalToTokens["Men haircut"].Any(tok => ContainsWordFast(norm, tok));
+        bool womenH = CanonicalToTokens["Women haircut"].Any(tok => ContainsWordFast(norm, tok));
+
+        // 3.1 Haircut + kids tokens → Kids haircut
+        if (hasHC && kidsH)
+            return "Kids haircut";
+
+        // 3.2 Haircut + (men/women) tokens → choose by proximity
+        if (hasHC && (menH || womenH))
+        {
+            var hcIndex = IndexOfAnyWord(norm, CanonicalToTokens["Haircut"]);
+            var menIndex = IndexOfAnyWord(norm, CanonicalToTokens["Men haircut"]);
+            var womIndex = IndexOfAnyWord(norm, CanonicalToTokens["Women haircut"]);
+
+            if (menH && womIndex < 0)
+                return "Men haircut";
+
+            if (womenH && menIndex < 0)
+                return "Women haircut";// 3.2 Haircut + (men/women) tokens → choose by proximity
+
+            if (hcIndex >= 0 && menIndex >= 0 && womIndex >= 0)
+                return Math.Abs(menIndex - hcIndex) <= Math.Abs(womIndex - hcIndex)
+                    ? "Men haircut"
+                    : "Women haircut";
+        }
+
+        // 3.3 Pure generic haircut
+        if (hasHC)
+            return "Haircut";
+
+        // 3.4 Any other canonical service by tokens 
+        foreach (var kv in CanonicalToTokens)
+        {
+            // Skip haircuts here — already handled above
+            if (kv.Key is "Men haircut" or "Women haircut" or "Haircut" or "Kids haircut")
+                continue;
+
+            if (kv.Value.Any(tok => ContainsWordFast(norm, tok)))
+                return kv.Key;
+        }
+
+        // Nothing matched
+        return null;
+    }
+
+    /// <summary>
+    /// Tries to extract *all* service codes mentioned in the utterance.
+    /// For example:
+    ///   "women haircut and haircut for my son"
+    /// → ["Women haircut", "Kids haircut"] (assuming proper tokens).
+    ///
+    /// This version:
+    ///  - Uses built-in normalized synonyms (SynonymsNormalize).
+    ///  - Uses canonical tokens (CanonicalToTokens) for Haircut-family and other services.
+    ///  - Does NOT depend on external lexicon.
+    ///  - Returns a unique set of canonical service names.
+    /// </summary>
+    public static List<string> TryExtractServices(string text)
+    {
+        // 0) Fast guard: empty / null → no services
+        if (string.IsNullOrWhiteSpace(text))
+            return new List<string>();
+
+        // Normalized text is our base for all lookups
+        var norm = Normalize(text);
+
+        // We collect services in a HashSet so we don't get duplicates
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // =========================
+        // 1) Built-in normalized synonyms (SynonymsNormalize)
+        // =========================
+        //
+        // Similar to TryExtractService:
+        // if the utterance contains any known synonym (already normalized key),
+        // we add the corresponding canonical service code.
+        //
+        // Examples:
+        //   "womens cut"  -> "Women haircut"
+        //   "kids cut"    -> "Kids haircut"
+        //   "balayage"    -> "Balayage"
+        //   "mani"        -> "Manicure"
+        //
+        // Here we do NOT return immediately, because we want to collect
+        // multiple services from the same utterance.
+        foreach (var kv in SynonymsNormalize)
+        {
+            if (ContainsWordFast(norm, kv.Key))
+                found.Add(kv.Value);
+        }
+
+        // =========================
+        // 2) Haircut family (Haircut / Men / Women / Kids) via canonical tokens
+        // =========================
+        //
+        // We derive more structured information based on canonical token lists.
+        // This helps when synonyms didn't fire or the phrase is more generic
+        // (e.g. "haircut for my son" without any direct synonym).
+        //
+        var hcTokens = CanonicalToTokens["Haircut"];
+        var kidsTokens = CanonicalToTokens["Kids haircut"];
+        var menTokens = CanonicalToTokens["Men haircut"];
+        var womenTokens = CanonicalToTokens["Women haircut"];
+
+        // Check if the utterance contains any tokens from these lists
+        bool hasHaircut = hcTokens.Any(tok => ContainsWordFast(norm, tok));
+        bool kidsHint = kidsTokens.Any(tok => ContainsWordFast(norm, tok));
+        bool menHint = menTokens.Any(tok => ContainsWordFast(norm, tok));
+        bool womenHint = womenTokens.Any(tok => ContainsWordFast(norm, tok));
+
+        // 2.1 Haircut + kids tokens → Kids haircut
+        if (hasHaircut && kidsHint)
+            found.Add("Kids haircut");
+
+        // 2.2 Haircut + men tokens → Men haircut
+        if (hasHaircut && menHint)
+            found.Add("Men haircut");
+
+        // 2.3 Haircut + women tokens → Women haircut
+        if (hasHaircut && womenHint)
+            found.Add("Women haircut");
+
+        // 2.4 Generic haircut (no men/women/kids hints)
+        if (hasHaircut && !menHint && !womenHint && !kidsHint)
+            found.Add("Haircut");
+
+        // =========================
+        // 3) All other canonical services (Color, Balayage, Manicure, etc.)
+        // =========================
+        //
+        // Here we scan all canonical services and check if any of their tokens
+        // appear as whole words in the normalized utterance.
+        //
+        foreach (var kv in CanonicalToTokens)
+        {
+            var canonical = kv.Key;
+
+            // Skip the haircut family here — already handled above
+            if (canonical is "Men haircut" or "Women haircut" or "Haircut" or "Kids haircut")
+                continue;
+
+            var tokens = kv.Value;
+
+            // If any token for this canonical service appears as a whole word,
+            // we add that service to the result.
+            if (tokens.Any(tok => ContainsWordFast(norm, tok)))
+                found.Add(canonical);
+        }
+
+        // Convert HashSet to List before returning
+        return found.ToList();
+    }
+
+    /// <summary>
+    /// Extracts all services from the utterance, computes a heuristic confidence score,
+    /// and returns a human-readable reason string for logging/debugging.
+    /// 
+    /// Score is based on:
+    ///   - Whether any services were found at all
+    ///   - Presence of canonical haircut tokens (Haircut / Men / Women / Kids)
+    ///   - Presence of normalized synonyms (SynonymsNormalize)
+    ///   - Utterance length (short & clear vs. long & noisy)
+    ///   - Party info (used to adjust services list, not the score directly here)
+    /// </summary>
+    public static (List<string> Services, double Score, string Reason) ExtractServicesWithScore(string text)
+    {
+        // Normalized text is our base for all lookups (tokens, synonyms, etc.)
+        var norm = Normalize(text);
+
+        // 1) Core rule-based extraction: all services from this utterance
+        var services = TryExtractServices(text);
+
+        // =========================
+        // 2) Base score: do we have any services at all?
+        // =========================
+        //
+        // If we found at least one service, we start at 0.60.
+        // If we found nothing, we start at 0.0 → likely need clarification or LLM fallback.
+        //
+        double score = services.Count > 0 ? 0.6 : 0.0;
+
+        // =========================
+        // 3) Canonical haircut tokens (Haircut / Men / Women / Kids)
+        // =========================
+        //
+        // These are strong signals that the user really talked about a haircut.
+        //
+        bool hasHaircutTok = CanonicalToTokens["Haircut"]
+            .Any(tok => ContainsWordFast(norm, tok));
+
+        bool menHint = CanonicalToTokens["Men haircut"]
+            .Any(tok => ContainsWordFast(norm, tok));
+
+        bool womenHint = CanonicalToTokens["Women haircut"]
+            .Any(tok => ContainsWordFast(norm, tok));
+
+        bool kidsHint = CanonicalToTokens["Kids haircut"]
+            .Any(tok => ContainsWordFast(norm, tok));
+
+        // Haircut-token present → increase confidence
+        if (hasHaircutTok)
+            score += 0.15;
+
+        // Any gender/kids hints → slightly more confidence
+        if (menHint || womenHint || kidsHint)
+            score += 0.10;
+
+        // =========================
+        // 4) Synonym hit (SynonymsNormalize) → +0.05
+        // =========================
+        //
+        // If a service was matched via our curated synonyms dictionary,
+        // it’s a strong positive signal (admin/owner defined these),
+        // so we reward it a bit.
+        //
+        bool synonymHit = false;
+        foreach (var kv in SynonymsNormalize)
+        {
+            if (ContainsWordFast(norm, kv.Key))
+            {
+                synonymHit = true;
+                break;
+            }
+        }
+
+        if (synonymHit && services.Count > 0)
+        {
+            // Small bonus for “direct synonym match”
+            score += 0.05;
+        }
+
+        // =========================
+        // 5) Utterance length heuristics (adaptive scoring)
+        // =========================
+        //
+        // Idea:
+        //   - Very short phrases with clear services are usually high-signal (“just a women’s cut”).
+        //   - Very long phrases with only one service can be more noisy and ambiguous
+        //     (“so I was thinking maybe next week, maybe a haircut or maybe something else...”).
+        //
+        var tokens = norm
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries); // split on whitespace
+        int tokenCount = tokens.Length;
+
+        if (services.Count > 0)
+        {
+            // 5.1 Short & focused utterance (e.g. <= 4 words) → more confidence
+            //     Examples: "women haircut", "kids haircut", "just balayage"
+            if (tokenCount <= 4)
+            {
+                score += 0.05;
+            }
+            // 5.2 Long utterance with only one service → slightly less confidence
+            //     Example: "so I wanted to ask if you work on Sundays and maybe do a quick haircut for me..."
+            else if (tokenCount >= 20 && services.Count == 1)
+            {
+                score -= 0.05;
+            }
+        }
+
+        // Make sure score doesn’t go below 0 after deductions
+        if (score < 0.0)
+            score = 0.0;
+
+        // =========================
+        // 6) Party info and service adjustment for groups
+        // =========================
+        //
+        // We don’t directly change the score here, but we DO adjust
+        // the services list based on party kind (KidsOnly, Mixed, etc.).
+        //
+        var party = TryExtractParty(text);
+        services = PreferKidsForGroupIfNeeded(services, party.kind);
+
+        // =========================
+        // 7) Clamp score to max 0.95 and build reason string
+        // =========================
+        //
+        // We keep a small gap to 1.0 so that other layers (e.g. LLM) can still
+        // reason “there is some residual uncertainty”.
+        //
+        if (score > 0.95)
+            score = 0.95;
+
+        var reasonStr =
+            $"rules: {string.Join("|", services)}; " +
+            $"hc={hasHaircutTok}; men={menHint}; women={womenHint}; kids={kidsHint}; " +
+            $"synonym={synonymHit}; tokens={tokenCount}; " +
+            $"party=({party.size},{party.kind})";
+
+        return (services, score, reasonStr);
+    }
+
+    #endregion Services (with scoring) -------------------------------------------------------------------------------------
+
+    #region Recognizers helpers --------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Picks culture ("es-es" vs "en-us") based on presence of strong Spanish markers in the text.
+    /// </summary>
+    private static string PickCulture(string text)
+    {
+        // Normalize уже делает lower + убирает диакритику:
+        // "Mañana a las tres" -> "manana a las tres"
+        var t = Normalize(text);
+
+        int scoreEs = 0;
+
+        // 1) Сильные маркеры: дни недели + mañana/hoy/tarde/noche
+        if (Regex.IsMatch(t, @"\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b",
+                          RegexOptions.CultureInvariant))
+            scoreEs += 2;
+
+        if (Regex.IsMatch(t, @"\b(manana|hoy|tarde|noche)\b",
+                          RegexOptions.CultureInvariant))
+            scoreEs += 2;
+
+        // 2) Типичные салонные/бронированные слова на испанском
+        if (Regex.IsMatch(t,
+                @"\b(cita|citas|turno|turnos|agendar|reservar|reserva|agendo|reservo|disponible|disponibilidad)\b",
+                RegexOptions.CultureInvariant))
+            scoreEs += 1;
+
+        // 3) Частотные глаголы и местоимения, но слабее (балл поменьше)
+        if (Regex.IsMatch(t,
+                @"\b(quiero|quisiera|necesito|puedo|podria|horario|hora|horas|nosotros|nosotras|ustedes|gracias|por favor)\b",
+                RegexOptions.CultureInvariant))
+            scoreEs += 1;
+
+        // Порог: 2 и выше -> считаем испанским
+        if (scoreEs >= 2)
+            return Culture.Spanish;   // "es-es"
+
+        return Culture.English;       // "en-us"
+    }
+
+    /// <summary>
+    /// Recognizes party size using Microsoft Recognizers Text (MSRT) library
+    /// </summary>
+    private static int? RecognizePartySizeWithMsrt(string text)
+    {
+        var culture = PickCulture(text);
+        var nums = NumberRecognizer.RecognizeNumber(text, culture);
+        int? best = null;
+
+        foreach (var n in nums)
+        {
+            if (n.Resolution != null && n.Resolution.TryGetValue("value", out var valObj))
+            {
+                if (valObj is string s && double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+                {
+                    var cand = (int)Math.Round(d);
+                    if (cand >= 1 && cand <= 10) best = Math.Max(best ?? 0, cand);
+                }
+            }
+        }
+
+        // simple phrasing
+        if (best is null)
+        {
+            var t = Normalize(text);
+            if (ContainsWordFast(t, "couple") || ContainsWordFast(t, "both") || ContainsWordFast(t, "pair")) best = 2;
+            if (ContainsWordFast(t, "pareja")) best = 2;
+        }
+
+        return best;
+    }
+
+    #endregion Recognizers helpers --------------------------------------------------------------------------------------------
+
+    #region Duration / YesNo / Helpers ----------------------------------------------------------------------------------------
+
+    private static int IndexOfAnyWord(string text, IEnumerable<string> words)
+    {
+        int best = -1;
+        foreach (var w in words)
+        {
+            int idx = IndexOfWord(text, w);
+            if (idx >= 0 && (best < 0 || idx < best)) best = idx;
+        }
+        return best;
+    }
+
+    private static int IndexOfWord(string text, string word)
+    {
+        if (string.IsNullOrEmpty(word)) return -1;
+        int idx = text.IndexOf(word, StringComparison.Ordinal);
+        while (idx >= 0)
+        {
+            bool leftOk = idx == 0 || !char.IsLetterOrDigit(text[idx - 1]);
+            int end = idx + word.Length;
+            bool rightOk = end == text.Length || !char.IsLetterOrDigit(text[end]);
+            if (leftOk && rightOk) return idx;
+            idx = text.IndexOf(word, idx + 1, StringComparison.Ordinal);
+        }
+        return -1;
+    }
+
+    #endregion Duration / YesNo / Helpers -------------------------------------------------------------------------------------
 }

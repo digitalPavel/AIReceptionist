@@ -1,4 +1,8 @@
 ﻿using Demo1.Models;
+using Microsoft.AspNetCore.Routing.Matching;
+using Microsoft.Recognizers.Text;
+using Microsoft.Recognizers.Text.DateTime;
+using Microsoft.Recognizers.Text.Number;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -7,17 +11,13 @@ using System.Text.RegularExpressions;
 using Twilio.Jwt.AccessToken;
 using Twilio.TwiML.Voice;
 
-using Microsoft.Recognizers.Text;
-using Microsoft.Recognizers.Text.DateTime;
-using Microsoft.Recognizers.Text.Number;
-
 ///ASR Text → Normalization → Canonical Name → Slot Filling
 namespace Demo1.Services.Brain.SlotsFillingServices;
 
 public static class SlotFilling
 {
     //  PROVIDERS FOR DB in FEUTURE!
-    //private static IMasterCatalog? _catalog;
+    // private static IMasterCatalog? _catalog;
     //private static IServiceLexicon? _lexicon;
 
     // 
@@ -59,6 +59,56 @@ public static class SlotFilling
 
 
     #region Regex & constants (precompiled) --------------------------------------------------------------------------
+
+    // Regex to detect "no preference" for master 
+    private static readonly Regex RxNoMasterPreference =
+    new(
+        @"\b(" +
+        // ---------- ENGLISH ----------
+        @"any(?:one)?(?: stylist| master| barber| colorist)?(?: is)? (?:fine|ok|okay|good)" +  // "any stylist is fine"
+        @"|any(?:one)?(?: works)?" +                                                          // "any", "anyone", "anyone works"
+        @"|no preference" +
+        @"|doesn'?t matter" +
+        @"|i don'?t care" +
+        @"|dont care" +
+        @"|whatever" +
+        @"|whoever" +
+        @"|either is fine" +
+        @"|no matter who" +
+        @"|you can choose" +
+        @"|you choose" +
+        @"|up to you" +
+        @"|surprise me" +
+
+        // ---------- RUSSIAN ----------
+        @"|любой(?: мастер| стилист| парикмахер)?" +                                          // "любой мастер/стилист..."
+        @"|любая" +
+        @"|любые" +
+        @"|без разницы" +
+        @"|мне без разницы" +
+        @"|все равно" +
+        @"|всё равно" +
+        @"|мне все равно" +
+        @"|мне всё равно" +
+        @"|как угодно" +
+        @"|мне не важно" +
+        @"|не важно" +
+        @"|пофиг" +
+        @"|по барабану" +
+
+        // ---------- SPANISH (без акцентов, т.к. Normalize всё убирает) ----------
+        @"|cualquiera(?: esta bien)?" +                                                       // "cualquiera", "cualquiera está bien"
+        @"|me da igual" +
+        @"|me es indiferente" +
+        @"|no me importa" +
+        @"|no tengo preferencia" +
+        @"|sin preferencia" +
+        @"|como sea" +
+        @"|lo que sea" +
+        @"|el que sea" +
+        @"|la que sea" +
+        @")\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     // Regex to normalize spaces
     private static readonly Regex RxSpaces = new("\\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -1683,6 +1733,93 @@ public static class SlotFilling
 
     #endregion Services (with scoring) -------------------------------------------------------------------------------------
 
+    #region Master ---------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Tries to extract master name from the text if mentioned by caller (e.g. "with John", "by Anna", "I want to book with Mike").
+    /// </summary>
+    public static string? TryExtractMasterByName(string text)
+    {
+        var norm = Normalize(text);
+
+        // 1) Direct name match
+        var m1 = RxWithMaster.Match(norm);
+
+        // 2) Return canonicalized name if found
+        if (m1.Success) 
+            return CanonicalizeName(m1.Groups[1].Value);
+
+        // 3) Return canonicalized name if did not find in 2
+        var m2 = RxMasterAny.Match(norm);
+        if(m2.Success) 
+            return CanonicalizeName(m2.Groups[1].Value);
+
+        // 4) Try master synonyms if nothing found yet
+        foreach (var kv in MasterNormalize)
+            if (ContainsWordFast(norm, Normalize(kv.Key)))
+                return kv.Value;
+
+        return null;
+    }
+
+    public static (bool noPref, string[] prefered) ParseMasterPreference(string text)
+    {
+        var norm = Normalize(text);
+
+        // 1) If no preference mentioned
+        if (RxNoMasterPreference.IsMatch(norm))
+            return (true, Array.Empty<string>());
+
+        // 2) Collect all mentioned masters
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 3) Source of masters
+        // TODO (future): enable when _catalog is implemented
+        // string[] masters = _catalog?.GetMasters() ?? Masters;
+
+        string[] master = Masters;
+
+        // 4) Direct matches: "Emily", "Nikita", "Pablo"
+        foreach (var m in master)
+            if(ContainsWordFast(norm, Normalize(m)))
+                found.Add(m);
+
+        // 5) Normalization dictionary: "emi" → Emily, "никитка" → Nikita
+        foreach (var kv in MasterNormalize)
+        {
+            if (ContainsWordFast(norm, Normalize(kv.Key)))
+                found.Add(kv.Value);
+        }
+
+        // 6) If nothing found, return no preference
+        return (found.Count == 0, found.ToArray());
+    }
+
+    /// <summary>
+    /// Filters the list of available masters to those who support all specified services.
+    /// </summary>
+    public static IEnumerable<string> FilterMastersBySkills (IEnumerable<string> services, IEnumerable<string>? preferredMasters = null)
+    {
+        // Create a set of needed services for quick lookup  
+        var needed = new HashSet<string>(services, StringComparer.OrdinalIgnoreCase);
+
+        // Determine candidate masters based on preferences or all available masters
+        var candidate = (preferredMasters is not null && preferredMasters.Any())
+            ? new HashSet<string>(preferredMasters, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(// _catalog?.GetMasters() ?? TODO (future): enable when _catalog is implemented
+                                  Masters, StringComparer.OrdinalIgnoreCase);
+
+        // TODO(future): enable when _catalog is implemented
+        // if (_catalog is not null)
+        // return candidates.Where(m => needed.All(svc => _catalog.Supports(m, svc)));
+
+        // Filter candidates based on their skills
+        return candidate.Where(m => MasterSkills.TryGetValue(m, out var skills)
+               && needed.All(svc => skills.Contains(svc)));
+    }
+
+    #endregion Master ------------------------------------------------------------------------------------------------------
+
     #region Recognizers helpers --------------------------------------------------------------------------------------------
 
     /// <summary>
@@ -1785,6 +1922,29 @@ public static class SlotFilling
         }
         return -1;
     }
+
+    private static string TitleCase(string name)
+    {
+        var ti = CultureInfo.InvariantCulture.TextInfo;
+        return string.Join(" ", name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => ti.ToTitleCase(w.ToLowerInvariant())));
+    }
+
+    private static string CanonicalizeName(string found)
+    {
+        // For DB-based catalog
+        //if (_catalog is not null) return _catalog.Canonicalize(found);
+        var n = Normalize(found);
+
+        if (MasterNormalize.TryGetValue(n, out var canonFromDict)) return canonFromDict;
+
+        foreach (var m in Masters) if (Normalize(m).Equals(n, StringComparison.OrdinalIgnoreCase)) return m;
+        foreach (var m in Masters) if (LooseEq(m, found)) return m;
+        return TitleCase(found);
+    }
+
+    private static string NormalizeLite(string s) => Regex.Replace(s, @"\s+", " ").Trim();
+
+    private static bool LooseEq(string a, string b) => NormalizeLite(a).Equals(NormalizeLite(b), StringComparison.OrdinalIgnoreCase);
 
     #endregion Duration / YesNo / Helpers -------------------------------------------------------------------------------------
 }
